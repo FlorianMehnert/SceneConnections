@@ -12,7 +12,7 @@ public class ScriptNode : Node
     {
         Script = script;
         title = script.name;
-        
+
         // Create input port for references to this script
         InputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(MonoScript));
         InputPort.portName = "References";

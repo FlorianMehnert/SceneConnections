@@ -19,7 +19,7 @@ namespace SceneConnections.EditorWindow
             SetupCallbacks();
 
             anchored = true;
-        
+
             // Set default minimap style
             style.width = 200;
             style.height = 200;
@@ -68,7 +68,7 @@ namespace SceneConnections.EditorWindow
 
                     // Apply scaled delta for smoother movement
                     Vector2 scaledDelta = new(
-                        dragDelta.x * 6.0f /  _scaleX,
+                        dragDelta.x * 6.0f / _scaleX,
                         dragDelta.y * 4.0f / _scaleY
                     );
 
