@@ -26,23 +26,23 @@ public class LayoutState
         GroupLayouts = new List<GroupLayout>();
     }
 
-    public void SetTotalSize(Vector2 totalSize){
-        TotalSize = totalSize;
-    }
-
     public void ApplyLayout()
     {
         foreach (var groupLayout in GroupLayouts)
         {
+            // Apply group rectangle
+            groupLayout.Group.SetPosition(groupLayout.FinalRect);
+
             // Apply node rectangles
             foreach (var nodeLayout in groupLayout.NodeLayouts)
             {
                 nodeLayout.Node.SetPosition(nodeLayout.FinalRect);
             }
-
-            // Apply group rectangle
-            // groupLayout.Group.SetPosition(groupLayout.FinalRect);
         }
+    }
+
+    public void SetTotalSize(Vector2 totalSize){
+        TotalSize = totalSize;
     }
 }
 
@@ -80,7 +80,7 @@ public class NodeUtils
                 }
 
                 // Calculate ideal size with some padding
-                const float padding = 10f; // Adjust padding as needed
+                const float padding = 100f; // Adjust padding as needed
                 idealSizes[i] = new Vector2(
                     maxX - minX + (padding * 2),
                     maxY - minY + (padding * 2)
@@ -188,7 +188,7 @@ public class NodeUtils
         group.SetPosition(groupRect);
     }
 
-    public static LayoutState OptimizeGroupLayouts(Group[] groups, float padding = 10f)
+    public static LayoutState OptimizeGroupLayouts(Group[] groups, float padding = 500f)
 {
     LayoutState layoutState = new LayoutState();
     
@@ -203,7 +203,8 @@ public class NodeUtils
         var groupLayout = new LayoutState.GroupLayout
         {
             Group = group,
-            NodeLayouts = new List<LayoutState.NodeLayout>()
+            NodeLayouts = new List<LayoutState.NodeLayout>(),
+            FinalRect = new Rect(0, 0, 0, 0) // Initialize with zero rect
         };
 
         if (group.containedElements != null && group.containedElements.Count() > 0)
@@ -222,7 +223,7 @@ public class NodeUtils
             float[] colWidths = new float[Mathf.CeilToInt((float)nodes.Count / rowHeights.Length)];
             Vector2[] nodePositions = CalculateOptimalNodePositions(nodes, padding, rowHeights, colWidths);
 
-            // Store node layouts
+            // Store node layouts with local positions (relative to group)
             for (int i = 0; i < nodes.Count; i++)
             {
                 var nodeLayout = new LayoutState.NodeLayout
@@ -241,7 +242,8 @@ public class NodeUtils
             // Calculate group size based on node positions
             float groupWidth = colWidths.Sum() + (padding * (colWidths.Length + 1));
             float groupHeight = rowHeights.Sum() + (padding * (rowHeights.Length + 1));
-            groupLayout.FinalRect = new Rect(0, 0, groupWidth, groupHeight);
+            groupLayout.FinalRect.width = groupWidth;
+            groupLayout.FinalRect.height = groupHeight;
         }
 
         groupLayouts.Add(groupLayout);
@@ -256,7 +258,7 @@ public class NodeUtils
 
     // Try different grid arrangements for groups
     float bestTotalArea = float.MaxValue;
-    Vector2[] bestPositions = new Vector2[groups.Length];
+    Vector2[] bestPositions = new Vector2[groupLayouts.Count];
     Vector2 bestOverallSize = Vector2.zero;
 
     int maxRows = Mathf.CeilToInt(Mathf.Sqrt(groupLayouts.Count));
@@ -314,27 +316,47 @@ public class NodeUtils
         }
     }
 
-    // Update final positions in layout state
+    // Create final layout state with updated positions
+    var finalGroupLayouts = new List<LayoutState.GroupLayout>();
+    
     for (int i = 0; i < groupLayouts.Count; i++)
     {
+        var originalGroupLayout = groupLayouts[i];
         Vector2 groupPosition = bestPositions[i];
-        var groupLayout = groupLayouts[i];
         
-        // Update group position
-        groupLayout.FinalRect.x = groupPosition.x;
-        groupLayout.FinalRect.y = groupPosition.y;
-
-        // Update node positions relative to group position
-        foreach (var nodeLayout in groupLayout.NodeLayouts)
+        // Create new group layout with updated position
+        var updatedGroupLayout = new LayoutState.GroupLayout
         {
-            var updatedNodeLayout = nodeLayout;
-            updatedNodeLayout.FinalRect.x += groupPosition.x;
-            updatedNodeLayout.FinalRect.y += groupPosition.y;
+            Group = originalGroupLayout.Group,
+            FinalRect = new Rect(
+                groupPosition.x,
+                groupPosition.y,
+                originalGroupLayout.FinalRect.width,
+                originalGroupLayout.FinalRect.height
+            ),
+            NodeLayouts = new List<LayoutState.NodeLayout>()
+        };
+
+        // Update node positions relative to new group position
+        foreach (var originalNodeLayout in originalGroupLayout.NodeLayouts)
+        {
+            var updatedNodeLayout = new LayoutState.NodeLayout
+            {
+                Node = originalNodeLayout.Node,
+                FinalRect = new Rect(
+                    groupPosition.x + originalNodeLayout.FinalRect.x,
+                    groupPosition.y + originalNodeLayout.FinalRect.y,
+                    originalNodeLayout.FinalRect.width,
+                    originalNodeLayout.FinalRect.height
+                )
+            };
+            updatedGroupLayout.NodeLayouts.Add(updatedNodeLayout);
         }
+
+        finalGroupLayouts.Add(updatedGroupLayout);
     }
 
-    // Store final layout state
-    layoutState.GroupLayouts.AddRange(groupLayouts);
+    layoutState.GroupLayouts.AddRange(finalGroupLayouts);
     layoutState.SetTotalSize(bestOverallSize);
 
     return layoutState;

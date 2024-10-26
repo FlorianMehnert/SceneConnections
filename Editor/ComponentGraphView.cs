@@ -110,16 +110,7 @@ public class ComponentGraphView : GraphView
         else if (evt.ctrlKey && evt.keyCode == KeyCode.T)
         {
             Group[] groups = _gameObjectGroups.Values.OfType<Group>().ToArray();
-            NodeUtils.OptimizeGroupLayouts(groups);
             LayoutState layoutState = NodeUtils.OptimizeGroupLayouts(groups, padding: 15f);
-
-            foreach (var groupLayout in layoutState.GroupLayouts)
-            {
-                // Access group and node positions/sizes
-                Debug.Log($"Group {groupLayout.Group} final size: {groupLayout.FinalRect}");
-            }
-
-            // Apply the layout when ready
             layoutState.ApplyLayout();
         }
     }
