@@ -17,6 +17,10 @@ public class ComponentGraphView : GraphView
     private bool _needsLayout;
     private readonly Label _loadingLabel;
 
+    private readonly Label _debuggingLabel;
+
+    private int _currentDebuggedRect = 0;
+
     private bool _showScripts;
 
 
@@ -48,10 +52,24 @@ public class ComponentGraphView : GraphView
             }
         };
         Add(_loadingLabel);
+
+        _debuggingLabel = new Label("DEBUGING_PLACEHOLDER")
+        {
+            style =
+            {
+                display = DisplayStyle.Flex,
+                position = Position.Absolute,
+                top = 10,
+                left = 500,
+                backgroundColor = new Color(.2f, .8f, .8f, 0.8f),
+                color = Color.black
+            }
+        };
+        Add(_debuggingLabel);
         RegisterCallback<KeyDownEvent>(OnKeyDownEvent);
     }
 
-    public void setShowScripts(bool showScripts)
+    public void SetShowScripts(bool showScripts)
     {
         _showScripts = showScripts;
     }
@@ -61,8 +79,31 @@ public class ComponentGraphView : GraphView
         // Check for Ctrl + R or any other shortcut key combination
         if (evt.ctrlKey && evt.keyCode == KeyCode.R)
         {
+            _debuggingLabel.text = "refresh graph";
             RefreshGraph();
             evt.StopPropagation(); // Prevent further handling of the event
+        }
+        else if (evt.ctrlKey && evt.keyCode == KeyCode.L)
+        {
+            _debuggingLabel.text = "layout nodes";
+            LayoutNodes();
+            evt.StopPropagation();
+        }
+        else if (evt.ctrlKey && evt.keyCode == KeyCode.I)
+        {
+            int i = 0;
+            foreach (var kvp in _gameObjectGroups)
+            {
+                var group = kvp.Value;
+                
+                if (_currentDebuggedRect < i){
+                    _debuggingLabel.text = "i: " + i + " cur: " + _currentDebuggedRect + " size: " + group.containedElements.OfType<Node>().ToList()[0].contentRect.size.ToString();
+                    break;
+                }
+                ++i;
+            }
+            ++_currentDebuggedRect;
+            evt.StopPropagation();
         }
     }
 
@@ -100,7 +141,7 @@ public class ComponentGraphView : GraphView
 
     private void CreateComponentGraph()
     {
-        var allGameObjects = Object.FindObjectsOfType<GameObject>();
+        var allGameObjects = UnityEngine.Object.FindObjectsOfType<GameObject>();
 
         foreach (var gameObject in allGameObjects)
         {
@@ -207,7 +248,7 @@ public class ComponentGraphView : GraphView
         var properties = component.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public)
             .Where(p => p.CanRead && !p.GetIndexParameters().Any());
 
-        foreach (var property in properties.Take(5)) // Limit to 5 properties to avoid cluttering
+        foreach (var property in properties.Take(1)) // Limit to 5 properties to avoid cluttering
         {
             try
             {
@@ -258,14 +299,16 @@ public class ComponentGraphView : GraphView
         return node.InstantiatePort(Orientation.Horizontal, direction, capacity, typeof(Component));
     }
 
-
+    /// <summary>
+    /// Call to organize the layout of all nodes
+    /// </summary>
     private void LayoutNodes()
     {
         float x = 0;
         float y = 0;
         float maxHeightInRow = 0;
         const float groupPadding = 50;
-        const float maxWidth = 2000;
+        const float maxWidth = 5000;
 
         foreach (var kvp in _gameObjectGroups)
         {
@@ -288,6 +331,10 @@ public class ComponentGraphView : GraphView
         }
     }
 
+    /// <summary>
+    /// used to move nodes within a group
+    /// </summary>
+    /// <param name="group">a group can contain nodes</param>
     private static void LayoutNodesInGroup(Group group)
     {
         const float nodePadding = 20;
@@ -299,32 +346,19 @@ public class ComponentGraphView : GraphView
         float maxHeightInRow = 0;
         float rowWidth = 0;
 
-        // Debug log the number of nodes
-        Debug.Log($"Laying out {nodes.Count} nodes in group {group.title}");
-
         foreach (var node in nodes)
         {
-            // Debug log each node's dimensions
-            Debug.Log($"Node {node.title} - Width: {node.contentRect.width}, Height: {node.contentRect.height}");
-
             // Use a minimum width if contentRect is not yet calculated
-            var nodeWidth = Mathf.Max(node.contentRect.width, 200f);
+            var nodeWidth = Mathf.Max(node.contentRect.width, 50f);
             var nodeHeight = Mathf.Max(node.contentRect.height, 100f);
 
             // Check if we need to move to the next row
             if (currentX + nodeWidth > maxGroupWidth)
             {
-                // Debug log row wrap
-                Debug.Log($"Moving to next row at y: {currentY}");
-
                 currentX = nodePadding;
                 currentY += maxHeightInRow + nodePadding;
                 maxHeightInRow = 0;
             }
-
-            // Debug log node position
-            Debug.Log($"Positioning node {node.title} at X: {currentX}, Y: {currentY}");
-
             // Set the position
             var newRect = new Rect(currentX, currentY, nodeWidth, nodeHeight);
             node.SetPosition(newRect);
@@ -339,9 +373,6 @@ public class ComponentGraphView : GraphView
         var finalHeight = currentY + maxHeightInRow + nodePadding;
         var finalWidth = Mathf.Min(maxGroupWidth, rowWidth + nodePadding);
 
-        // Debug log final group dimensions
-        Debug.Log($"Setting group {group.title} dimensions - Width: {finalWidth}, Height: {finalHeight}");
-
         group.SetPosition(new Rect(
             group.contentRect.x,
             group.contentRect.y,
@@ -353,20 +384,37 @@ public class ComponentGraphView : GraphView
     // Add this helper method to force a layout refresh
     public void ForceLayoutRefresh()
     {
-        foreach (var node in _gameObjectGroups.Values.SelectMany(group => group.containedElements.OfType<Node>()))
+        if (_showScripts)
         {
-            // Force the node to calculate its layout
-            node.RefreshExpandedState();
-            node.RefreshPorts();
+            foreach (var node in _scriptNodes)
+            {
+            }
+            EditorApplication.delayCall += () =>
+            {
+                LayoutNodes();
+                // Force the graph view to update
+                UpdateViewTransform(viewTransform.position, viewTransform.scale);
+            };
+        }
+        else
+        {
+            // grab all elements of type node
+            foreach (var node in _gameObjectGroups.Values.SelectMany(group => group.containedElements.OfType<Node>()))
+            {
+                // Force the node to calculate its layout
+                //node.RefreshExpandedState();
+                //node.RefreshPorts();
+            }
+
+            // Schedule the layout for the next frame
+            EditorApplication.delayCall += () =>
+            {
+                LayoutNodes();
+                // Force the graph view to update
+                //UpdateViewTransform(viewTransform.position, viewTransform.scale);
+            };
         }
 
-        // Schedule the layout for the next frame
-        EditorApplication.delayCall += () =>
-        {
-            LayoutNodes();
-            // Force the graph view to update
-            UpdateViewTransform(viewTransform.position, viewTransform.scale);
-        };
     }
 
 

@@ -24,8 +24,8 @@ public class ComponentGraphViewer : EditorWindow
         _graphView = new ComponentGraphView();
         rootVisualElement.Add(_graphView);
 
-        var showGraphToggle = new Toggle("Show Scripts") { value = true };
-        showGraphToggle.RegisterValueChangedCallback(evt => { _graphView.setShowScripts(evt.newValue); });
+        var showGraphToggle = new Toggle("Show Scripts") { value = false };
+        showGraphToggle.RegisterValueChangedCallback(evt => { _graphView.SetShowScripts(evt.newValue); });
         rootVisualElement.Add(showGraphToggle);
 
         var refreshButton = new Button(() =>
