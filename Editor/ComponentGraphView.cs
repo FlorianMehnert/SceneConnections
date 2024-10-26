@@ -96,14 +96,18 @@ public class ComponentGraphView : GraphView
             {
                 var group = kvp.Value;
                 
-                if (_currentDebuggedRect < i){
-                    _debuggingLabel.text = "i: " + i + " cur: " + _currentDebuggedRect + " size: " + group.containedElements.OfType<Node>().ToList()[0].contentRect.size.ToString();
+                if (_currentDebuggedRect < i && group.containedElements.OfType<Node>().ToArray().Count() > 1){
+                    _debuggingLabel.text = "i: " + i + " cur: " + _currentDebuggedRect + " size: " + group.containedElements.OfType<Node>().ToList()[1].contentRect.ToString();
+                    group.selected = true;
                     break;
                 }
                 ++i;
             }
             ++_currentDebuggedRect;
             evt.StopPropagation();
+        }
+        else if (evt.ctrlKey && evt.keyCode == KeyCode.T){
+            NodeUtils.OptimizeGroupLayouts(_gameObjectGroups.Values.OfType<Group>().ToArray());
         }
     }
 
@@ -141,7 +145,7 @@ public class ComponentGraphView : GraphView
 
     private void CreateComponentGraph()
     {
-        var allGameObjects = UnityEngine.Object.FindObjectsOfType<GameObject>();
+        var allGameObjects = Object.FindObjectsOfType<GameObject>();
 
         foreach (var gameObject in allGameObjects)
         {
