@@ -3,6 +3,49 @@ using System.Linq;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
+public class LayoutState
+{
+    public struct NodeLayout
+    {
+        public Node Node;
+        public Rect FinalRect;
+    }
+
+    public struct GroupLayout
+    {
+        public Group Group;
+        public Rect FinalRect;
+        public List<NodeLayout> NodeLayouts;
+    }
+
+    public List<GroupLayout> GroupLayouts { get; private set; }
+    public Vector2 TotalSize { get; private set; }
+
+    public LayoutState()
+    {
+        GroupLayouts = new List<GroupLayout>();
+    }
+
+    public void SetTotalSize(Vector2 totalSize){
+        TotalSize = totalSize;
+    }
+
+    public void ApplyLayout()
+    {
+        foreach (var groupLayout in GroupLayouts)
+        {
+            // Apply node rectangles
+            foreach (var nodeLayout in groupLayout.NodeLayouts)
+            {
+                nodeLayout.Node.SetPosition(nodeLayout.FinalRect);
+            }
+
+            // Apply group rectangle
+            // groupLayout.Group.SetPosition(groupLayout.FinalRect);
+        }
+    }
+}
+
 public class NodeUtils
 {
     /// get
@@ -145,12 +188,193 @@ public class NodeUtils
         group.SetPosition(groupRect);
     }
 
-    // Helper method to optimize multiple groups
-    public static void OptimizeGroupLayouts(Group[] groups, float padding = 10f)
+    public static LayoutState OptimizeGroupLayouts(Group[] groups, float padding = 10f)
+{
+    LayoutState layoutState = new LayoutState();
+    
+    if (groups == null || groups.Length == 0)
+        return layoutState;
+
+    // First optimize internal layout of each group and store the results
+    var groupLayouts = new List<LayoutState.GroupLayout>();
+    
+    foreach (Group group in groups)
     {
-        foreach (Group group in groups)
+        var groupLayout = new LayoutState.GroupLayout
         {
-            OptimizeGroupLayout(group, padding);
+            Group = group,
+            NodeLayouts = new List<LayoutState.NodeLayout>()
+        };
+
+        if (group.containedElements != null && group.containedElements.Count() > 0)
+        {
+            List<Node> nodes = group.containedElements.OfType<Node>().ToList();
+            
+            // Sort nodes by area
+            nodes.Sort((a, b) => {
+                float areaA = a.contentRect.width * a.contentRect.height;
+                float areaB = b.contentRect.width * b.contentRect.height;
+                return areaB.CompareTo(areaA);
+            });
+
+            // Calculate optimal node positions within group
+            float[] rowHeights = new float[Mathf.CeilToInt(Mathf.Sqrt(nodes.Count))];
+            float[] colWidths = new float[Mathf.CeilToInt((float)nodes.Count / rowHeights.Length)];
+            Vector2[] nodePositions = CalculateOptimalNodePositions(nodes, padding, rowHeights, colWidths);
+
+            // Store node layouts
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                var nodeLayout = new LayoutState.NodeLayout
+                {
+                    Node = nodes[i],
+                    FinalRect = new Rect(
+                        nodePositions[i].x,
+                        nodePositions[i].y,
+                        nodes[i].contentRect.width,
+                        nodes[i].contentRect.height
+                    )
+                };
+                groupLayout.NodeLayouts.Add(nodeLayout);
+            }
+
+            // Calculate group size based on node positions
+            float groupWidth = colWidths.Sum() + (padding * (colWidths.Length + 1));
+            float groupHeight = rowHeights.Sum() + (padding * (rowHeights.Length + 1));
+            groupLayout.FinalRect = new Rect(0, 0, groupWidth, groupHeight);
+        }
+
+        groupLayouts.Add(groupLayout);
+    }
+
+    // Sort groups by area for better packing
+    groupLayouts.Sort((a, b) => {
+        float areaA = a.FinalRect.width * a.FinalRect.height;
+        float areaB = b.FinalRect.width * b.FinalRect.height;
+        return areaB.CompareTo(areaA);
+    });
+
+    // Try different grid arrangements for groups
+    float bestTotalArea = float.MaxValue;
+    Vector2[] bestPositions = new Vector2[groups.Length];
+    Vector2 bestOverallSize = Vector2.zero;
+
+    int maxRows = Mathf.CeilToInt(Mathf.Sqrt(groupLayouts.Count));
+    
+    for (int numRows = 1; numRows <= maxRows; numRows++)
+    {
+        int numCols = Mathf.CeilToInt((float)groupLayouts.Count / numRows);
+        Vector2[] currentPositions = new Vector2[groupLayouts.Count];
+        
+        float[] rowHeights = new float[numRows];
+        float[] colWidths = new float[numCols];
+
+        // Calculate maximum dimensions for each row and column
+        for (int i = 0; i < groupLayouts.Count; i++)
+        {
+            int row = i / numCols;
+            int col = i % numCols;
+            
+            Rect rect = groupLayouts[i].FinalRect;
+            rowHeights[row] = Mathf.Max(rowHeights[row], rect.height);
+            colWidths[col] = Mathf.Max(colWidths[col], rect.width);
+        }
+
+        // Calculate positions and total size
+        float currentY = padding;
+        float totalWidth = padding;
+        float totalHeight = padding;
+
+        for (int row = 0; row < numRows; row++)
+        {
+            float currentX = padding;
+            
+            for (int col = 0; col < numCols; col++)
+            {
+                int index = row * numCols + col;
+                if (index < groupLayouts.Count)
+                {
+                    currentPositions[index] = new Vector2(currentX, currentY);
+                    currentX += colWidths[col] + padding;
+                }
+            }
+            
+            totalWidth = Mathf.Max(totalWidth, currentX);
+            currentY += rowHeights[row] + padding;
+            totalHeight = currentY;
+        }
+
+        float totalArea = totalWidth * totalHeight;
+        
+        if (totalArea < bestTotalArea)
+        {
+            bestTotalArea = totalArea;
+            bestPositions = currentPositions.ToArray();
+            bestOverallSize = new Vector2(totalWidth, totalHeight);
         }
     }
+
+    // Update final positions in layout state
+    for (int i = 0; i < groupLayouts.Count; i++)
+    {
+        Vector2 groupPosition = bestPositions[i];
+        var groupLayout = groupLayouts[i];
+        
+        // Update group position
+        groupLayout.FinalRect.x = groupPosition.x;
+        groupLayout.FinalRect.y = groupPosition.y;
+
+        // Update node positions relative to group position
+        foreach (var nodeLayout in groupLayout.NodeLayouts)
+        {
+            var updatedNodeLayout = nodeLayout;
+            updatedNodeLayout.FinalRect.x += groupPosition.x;
+            updatedNodeLayout.FinalRect.y += groupPosition.y;
+        }
+    }
+
+    // Store final layout state
+    layoutState.GroupLayouts.AddRange(groupLayouts);
+    layoutState.SetTotalSize(bestOverallSize);
+
+    return layoutState;
+}
+
+private static Vector2[] CalculateOptimalNodePositions(List<Node> nodes, float padding, float[] rowHeights, float[] colWidths)
+{
+    Vector2[] positions = new Vector2[nodes.Count];
+    
+    // Calculate positions in a grid
+    for (int i = 0; i < nodes.Count; i++)
+    {
+        int row = i / colWidths.Length;
+        int col = i % colWidths.Length;
+        
+        Node node = nodes[i];
+        Rect rect = node.contentRect;
+        
+        // Update row heights and column widths
+        rowHeights[row] = Mathf.Max(rowHeights[row], rect.height);
+        colWidths[col] = Mathf.Max(colWidths[col], rect.width);
+    }
+
+    // Calculate final positions
+    float y = padding;
+    for (int row = 0; row < rowHeights.Length; row++)
+    {
+        float x = padding;
+        for (int col = 0; col < colWidths.Length; col++)
+        {
+            int index = row * colWidths.Length + col;
+            if (index < nodes.Count)
+            {
+                positions[index] = new Vector2(x, y);
+                x += colWidths[col] + padding;
+            }
+        }
+        y += rowHeights[row] + padding;
+    }
+
+    return positions;
+}
 }
