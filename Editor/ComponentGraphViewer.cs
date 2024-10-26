@@ -41,7 +41,8 @@ namespace SceneConnections.EditorWindow
                         _isRefreshing = false;
                     };
                 };
-            }) { text = "Refresh Graph" };
+            })
+            { text = "Refresh Graph" };
             rootVisualElement.Add(refreshButton);
         }
 
@@ -73,20 +74,32 @@ namespace SceneConnections.EditorWindow
             gridBackground.StretchToParentSize();
             style.flexGrow = 1;
             style.flexShrink = 1;
-            // Add to existing constructor
+
+            // Add the loading label to the view
             _loadingLabel = new Label("Calculating layout...")
             {
                 style =
-                {
-                    display = DisplayStyle.None,
-                    position = Position.Absolute,
-                    top = 10,
-                    left = 10,
-                    backgroundColor = new Color(.5f, 0, 0, 0.8f),
-                    color = Color.white
-                }
+            {
+                display = DisplayStyle.None,
+                position = Position.Absolute,
+                top = 10,
+                left = 10,
+                backgroundColor = new Color(.5f, 0, 0, 0.8f),
+                color = Color.white
+            }
             };
             Add(_loadingLabel);
+            RegisterCallback<KeyDownEvent>(OnKeyDownEvent);
+        }
+
+        private void OnKeyDownEvent(KeyDownEvent evt)
+        {
+            // Check for Ctrl + R or any other shortcut key combination
+            if (evt.ctrlKey && evt.keyCode == KeyCode.R)
+            {
+                RefreshGraph();
+                evt.StopPropagation(); // Prevent further handling of the event
+            }
         }
 
         public void RefreshGraph()
@@ -326,7 +339,7 @@ namespace SceneConnections.EditorWindow
             ));
         }
 
-// Add this helper method to force a layout refresh
+        // Add this helper method to force a layout refresh
         public void ForceLayoutRefresh()
         {
             foreach (var node in _gameObjectGroups.Values.SelectMany(group => group.containedElements.OfType<Node>()))

@@ -29,7 +29,7 @@ namespace SceneConnections.EditorWindow
 
             _selectedComponent = EditorGUILayout.ObjectField("Select Instance", _selectedComponent, _componentType, true) as Component;
 
-            if (_selectedComponent != null)
+            if (_selectedComponent)
             {
                 _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
                 Editor editor = Editor.CreateEditor(_selectedComponent);
