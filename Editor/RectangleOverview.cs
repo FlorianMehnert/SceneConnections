@@ -3,6 +3,7 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
+using UnityEditor.ShortcutManagement;
 
 namespace SceneConnections.EditorWindow
 {
@@ -71,33 +72,39 @@ namespace SceneConnections.EditorWindow
         private void OnGUI()
         {
             EditorGUILayout.BeginHorizontal();
+
             if (GUILayout.Button("Generate Graph"))
             {
                 GenerateGraph();
                 _graphNeedsUpdate = false;
             }
+
             bool newIncludeInactive = EditorGUILayout.ToggleLeft("Include Inactive", _includeInactiveObjects);
             bool newIncludeBuiltIn = EditorGUILayout.ToggleLeft("Include Built-in", _includeBuiltInComponents);
             bool newShowEqualComponents = EditorGUILayout.ToggleLeft("Include Equal Components", _showEqualComponents);
-            
-            if (newIncludeInactive != _includeInactiveObjects || newIncludeBuiltIn != _includeBuiltInComponents || newShowEqualComponents != _showEqualComponents)
+
+            if (newIncludeInactive != _includeInactiveObjects || 
+                newIncludeBuiltIn != _includeBuiltInComponents || 
+                newShowEqualComponents != _showEqualComponents)
             {
                 _includeInactiveObjects = newIncludeInactive;
                 _includeBuiltInComponents = newIncludeBuiltIn;
                 _showEqualComponents = newShowEqualComponents;
                 _graphNeedsUpdate = true;
             }
-            
+
             EditorGUILayout.EndHorizontal();
 
             HandleEvents();
 
             _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
+
             if (_graphNeedsUpdate)
             {
                 GenerateGraph();
                 _graphNeedsUpdate = false;
             }
+
             DrawGraph();
             EditorGUILayout.EndScrollView();
 
@@ -105,7 +112,7 @@ namespace SceneConnections.EditorWindow
             {
                 GUILayout.Space(10);
                 EditorGUILayout.LabelField("Selected: " + _selectedNode.GetType().Name, EditorStyles.boldLabel);
-                Editor editor = Editor.CreateEditor(_selectedNode); // TODO: add this to GraphViewImplementation
+                Editor editor = Editor.CreateEditor(_selectedNode); 
                 editor.OnInspectorGUI();
                 DestroyImmediate(editor);
             }
@@ -205,12 +212,23 @@ namespace SceneConnections.EditorWindow
         }
 
 
-        [MenuItem("Window/Connections v1 %#1^")]
+        [MenuItem("Window/Connections v1 #&1")]
         public static void ShowWindow()
         {
             GetWindow<RectangleWindow>("Rectangle Graph");
         }
 
+        [Shortcut("MyGraphEditor/GenerateGraphShortcut", KeyCode.R, ShortcutModifiers.Shift)]
+        private static void GenerateGraphShortcut()
+        {
+            var window = GetWindow<RectangleWindow>();
+            if (window != null)
+            {
+                window.GenerateGraph();
+                window._graphNeedsUpdate = false;
+            }
+        }
+        
         private void GenerateGraph()
         {
             _nodeInfos.Clear();
