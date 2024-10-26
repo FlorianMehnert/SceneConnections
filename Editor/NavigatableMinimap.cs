@@ -17,6 +17,8 @@ namespace SceneConnections.EditorWindow
         {
             _parentGraphView = graphView;
             SetupCallbacks();
+
+            anchored = true;
         
             // Set default minimap style
             style.width = 200;
