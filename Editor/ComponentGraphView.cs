@@ -12,9 +12,12 @@ using SceneConnections.EditorWindow;
 public class ComponentGraphView : GraphView
     {
         private readonly Dictionary<Component, Node> _componentNodes = new();
+        private readonly Dictionary<MonoScript, Node> _scriptNodes = new();
         private readonly Dictionary<GameObject, Group> _gameObjectGroups = new();
         private bool _needsLayout;
         private readonly Label _loadingLabel;
+
+        private bool _showScripts;
 
 
         public ComponentGraphView()
@@ -48,6 +51,10 @@ public class ComponentGraphView : GraphView
             RegisterCallback<KeyDownEvent>(OnKeyDownEvent);
         }
 
+        public void setShowScripts(bool showScripts){
+            _showScripts = showScripts;
+        }
+
         private void OnKeyDownEvent(KeyDownEvent evt)
         {
             // Check for Ctrl + R or any other shortcut key combination
@@ -61,7 +68,11 @@ public class ComponentGraphView : GraphView
         public void RefreshGraph()
         {
             ClearGraph();
-            CreateComponentGraph();
+            if (_showScripts){
+                CreateScriptGraph();
+            }else {
+                CreateComponentGraph();
+            }
             _loadingLabel.style.display = DisplayStyle.Flex;
             _needsLayout = true;
             EditorApplication.delayCall += PerformLayout;
@@ -101,6 +112,46 @@ public class ComponentGraphView : GraphView
             CreateEdges();
             LayoutNodes();
         }
+
+        private void CreateScriptGraph()
+        {
+            // query monoscripts
+            MonoScript[] scripts = AssetDatabase.FindAssets("t:MonoScript")
+            .Select(guid => AssetDatabase.LoadAssetAtPath<MonoScript>(AssetDatabase.GUIDToAssetPath(guid)))
+            .Where(script => script != null)
+            .ToArray();
+
+            CreateNodesForScripts(scripts);
+
+            CreateEdges();
+            LayoutNodes();
+        }
+
+
+        private void CreateNodesForScripts(MonoScript[] scripts)
+        {
+            foreach (var script in scripts)
+            {
+                var scriptType = script.GetClass();
+                if (scriptType != null)
+                {
+                    CreateScriptNode(script);
+                }
+            }
+        }
+
+        private void CreateScriptNode(MonoScript script)
+        {
+            var node = new ScriptNode(script)
+            {
+                title = script.GetType().Name,
+                userData = script
+            };
+
+            AddElement(node);
+            _scriptNodes[script] = node;
+        }
+
 
         private void CreateGameObjectGroup(GameObject gameObject)
         {

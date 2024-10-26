@@ -9,6 +9,8 @@ public class ComponentGraphViewer : EditorWindow
     private ComponentGraphView _graphView;
     private bool _isRefreshing;
 
+    public bool showScripts;
+
     [MenuItem("Window/Connections v2 #&2")]
     public static void OpenWindow()
     {
@@ -21,6 +23,10 @@ public class ComponentGraphViewer : EditorWindow
     {
         _graphView = new ComponentGraphView();
         rootVisualElement.Add(_graphView);
+
+        var showGraphToggle = new Toggle("Show Scripts") { value = true };
+        showGraphToggle.RegisterValueChangedCallback(evt => { _graphView.setShowScripts(evt.newValue); });
+        rootVisualElement.Add(showGraphToggle);
 
         var refreshButton = new Button(() =>
         {
