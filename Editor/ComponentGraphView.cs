@@ -9,15 +9,16 @@ using System.Reflection;
 using Edge = UnityEditor.Experimental.GraphView.Edge;
 using SceneConnections.EditorWindow;
 using UnityEditor.UIElements;
+using System.ComponentModel;
 
 
 public class ComponentGraphView : GraphView
 {
-    private readonly Dictionary<Component, Node> _componentNodes = new();
+    private readonly Dictionary<UnityEngine.Component, Node> _componentNodes = new();
     private readonly Dictionary<MonoScript, Node> _scriptNodes = new();
     private readonly Dictionary<GameObject, Group> _gameObjectGroups = new();
 
-    private GameObjectNode[] _nodes;
+    private List<GameObjectNode> _nodes;
     private bool _needsLayout;
     private readonly Label _loadingLabel;
 
@@ -127,6 +128,7 @@ public class ComponentGraphView : GraphView
             }
             else if (_drawType == Constants.ComponentGraphDrawType.NODES_ARE_GAME_OBJECTS)
             {
+                LayoutGameObjectNodes();
             }
         }
     }
@@ -140,7 +142,7 @@ public class ComponentGraphView : GraphView
         }
         else
         {
-            CreateComponentGraph(_drawType);
+            CreateGraph(_drawType);
         }
         _loadingLabel.style.display = DisplayStyle.Flex;
         _needsLayout = true;
@@ -168,7 +170,7 @@ public class ComponentGraphView : GraphView
     /// 
     /// </summary>
     /// <param name="style">ComponentGraphDrawType deciding wheter nodes are game objects or nodes are components grouped using groups</param>
-    private void CreateComponentGraph(Constants.ComponentGraphDrawType style = Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS)
+    private void CreateGraph(Constants.ComponentGraphDrawType style = Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS)
     {
         var allGameObjects = Object.FindObjectsOfType<GameObject>();
 
@@ -179,7 +181,7 @@ public class ComponentGraphView : GraphView
             {
                 CreateGameObjectGroup(gameObject);
 
-                var components = gameObject.GetComponents<Component>();
+                var components = gameObject.GetComponents<UnityEngine.Component>();
                 foreach (var component in components)
                 {
                     CreateComponentNode(component);
@@ -190,13 +192,11 @@ public class ComponentGraphView : GraphView
         // nodes contain attributes that correspond to attached components
         else if (style == Constants.ComponentGraphDrawType.NODES_ARE_GAME_OBJECTS)
         {
-            _nodes = new GameObjectNode[allGameObjects.Count()];
-            int i = 0;
+            _nodes = new List<GameObjectNode>();
             foreach (var gameObject in allGameObjects)
             {
-                var components = gameObject.GetComponents<Component>();
-                _nodes[i] = CreateGameObjectNode(gameObject, components);
-                _debuggingLabel.text = "TESTINNNN";
+                var components = gameObject.GetComponents<UnityEngine.Component>();
+                _nodes.Add(CreateGameObjectNode(gameObject, components));
             }
         }
 
@@ -255,7 +255,7 @@ public class ComponentGraphView : GraphView
         _gameObjectGroups[gameObject] = group;
     }
 
-    private void CreateComponentNode(Component component)
+    private void CreateComponentNode(UnityEngine.Component component)
     {
         var node = new Node
         {
@@ -289,28 +289,12 @@ public class ComponentGraphView : GraphView
         }
     }
 
-    private GameObjectNode CreateGameObjectNode(GameObject gameObject, Component[] components)
+    private GameObjectNode CreateGameObjectNode(GameObject gameObject, UnityEngine.Component[] components)
     {
         var node = new GameObjectNode
         {
             title = gameObject.name,
-            viewDataKey = GUID.Generate().ToString()
         };
-
-
-        // Create input port
-        var inputPort = Port.Create<Edge>(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(GameObject));
-        inputPort.portName = "Input";
-        node.inputContainer.Add(inputPort);
-
-        // Add GameObject info
-        var objectField = new ObjectField("GameObject")
-        {
-            objectType = typeof(GameObject),
-            value = gameObject,
-            allowSceneObjects = true
-        };
-        node.mainContainer.Add(objectField);
 
         // Add component list
         foreach (var component in components)
@@ -324,17 +308,16 @@ public class ComponentGraphView : GraphView
             node.mainContainer.Add(componentField);
         }
 
-        // Create output port
-        var outputPort = Port.Create<Edge>(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(GameObject));
-        outputPort.portName = "Output";
-        node.outputContainer.Add(outputPort);
-
         // Add node to graph
         AddElement(node);
         return node;
     }
 
-    private static void AddComponentProperties(Node node, Component component)
+    private void LayoutGameObjectNodes(){
+        NodeLayoutManager.LayoutNodes(_nodes);
+    }
+
+    private static void AddComponentProperties(Node node, UnityEngine.Component component)
     {
         var properties = component.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public)
             .Where(p => p.CanRead && !p.GetIndexParameters().Any());
@@ -363,8 +346,8 @@ public class ComponentGraphView : GraphView
                 .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             foreach (var field in fields)
             {
-                if (!typeof(Component).IsAssignableFrom(field.FieldType)) continue;
-                var targetComponent = field.GetValue(sourceComponent) as Component;
+                if (!typeof(UnityEngine.Component).IsAssignableFrom(field.FieldType)) continue;
+                var targetComponent = field.GetValue(sourceComponent) as UnityEngine.Component;
                 if (targetComponent != null && _componentNodes.TryGetValue(targetComponent, out var targetNode))
                 {
                     CreateEdge(sourceNode, targetNode);
@@ -387,7 +370,7 @@ public class ComponentGraphView : GraphView
 
     private static Port GeneratePort(Node node, Direction direction, Port.Capacity capacity)
     {
-        return node.InstantiatePort(Orientation.Horizontal, direction, capacity, typeof(Component));
+        return node.InstantiatePort(Orientation.Horizontal, direction, capacity, typeof(UnityEngine.Component));
     }
 
     /// <summary>
