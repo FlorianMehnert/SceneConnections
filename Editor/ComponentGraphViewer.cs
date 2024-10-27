@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEditor;
 
 using UnityEngine.UIElements;
+using System.Collections.Generic;
 
 
 public class ComponentGraphViewer : EditorWindow
@@ -25,8 +26,16 @@ public class ComponentGraphViewer : EditorWindow
         rootVisualElement.Add(_graphView);
 
         var showGraphToggle = new Toggle("Show Scripts") { value = false };
+        var setComponentGraphDrawType = new DropdownField("Set Component Graph Draw Type")
+        {
+            choices = { "nodes are components", "nodes are game objects" },
+            value = "nodes are components"
+        };
+
         showGraphToggle.RegisterValueChangedCallback(evt => { _graphView.SetShowScripts(evt.newValue); });
+        setComponentGraphDrawType.RegisterValueChangedCallback(evt => { _graphView.SetComponentGraphDrawType(Constants.ToCGDT(evt.newValue)); });
         rootVisualElement.Add(showGraphToggle);
+        rootVisualElement.Add(setComponentGraphDrawType);
 
         var refreshButton = new Button(() =>
         {

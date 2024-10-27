@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
 using UnityEditor.ShortcutManagement;
+using UnityEditor.PackageManager.UI;
 
 namespace SceneConnections.EditorWindow
 {
@@ -215,7 +216,8 @@ namespace SceneConnections.EditorWindow
         [MenuItem("Window/Connections v1 #&1")]
         public static void ShowWindow()
         {
-            GetWindow<RectangleWindow>("Rectangle Graph");
+            var window = GetWindow<RectangleWindow>("Rectangle Graph");
+            window.minSize = new Vector2(800, 600);
         }
 
         [Shortcut("MyGraphEditor/GenerateGraphShortcut", KeyCode.R, ShortcutModifiers.Shift)]

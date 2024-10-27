@@ -8,6 +8,8 @@ using System.Linq;
 using System.Reflection;
 using Edge = UnityEditor.Experimental.GraphView.Edge;
 using SceneConnections.EditorWindow;
+using UnityEditor.UIElements;
+
 
 public class ComponentGraphView : GraphView
 {
@@ -22,6 +24,8 @@ public class ComponentGraphView : GraphView
     private int _currentDebuggedRect = 0;
 
     private bool _showScripts;
+
+    private Constants.ComponentGraphDrawType _drawType = Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS;
 
 
     public ComponentGraphView()
@@ -38,7 +42,6 @@ public class ComponentGraphView : GraphView
         style.flexGrow = 1;
         style.flexShrink = 1;
 
-        // Add the loading label to the view
         _loadingLabel = new Label("Calculating layout...")
         {
             style =
@@ -74,14 +77,18 @@ public class ComponentGraphView : GraphView
         _showScripts = showScripts;
     }
 
+    public void SetComponentGraphDrawType(Constants.ComponentGraphDrawType drawType)
+    {
+        _drawType = drawType;
+    }
+
     private void OnKeyDownEvent(KeyDownEvent evt)
     {
-        // Check for Ctrl + R or any other shortcut key combination
         if (evt.ctrlKey && evt.keyCode == KeyCode.R)
         {
             _debuggingLabel.text = "refresh graph";
             RefreshGraph();
-            evt.StopPropagation(); // Prevent further handling of the event
+            evt.StopPropagation();
         }
         else if (evt.ctrlKey && evt.keyCode == KeyCode.L)
         {
@@ -124,7 +131,7 @@ public class ComponentGraphView : GraphView
         }
         else
         {
-            CreateComponentGraph();
+            CreateComponentGraph(_drawType);
         }
         _loadingLabel.style.display = DisplayStyle.Flex;
         _needsLayout = true;
@@ -147,18 +154,38 @@ public class ComponentGraphView : GraphView
         _gameObjectGroups.Clear();
     }
 
-    private void CreateComponentGraph()
+    /// <summary>
+    /// creating node overview using all GameObjects
+    /// 
+    /// </summary>
+    /// <param name="style">ComponentGraphDrawType deciding wheter nodes are game objects or nodes are components grouped using groups</param>
+    private void CreateComponentGraph(Constants.ComponentGraphDrawType style = Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS)
     {
         var allGameObjects = Object.FindObjectsOfType<GameObject>();
-
-        foreach (var gameObject in allGameObjects)
+        
+        // groups contain nodes that are components of a gameobject
+        if (style == Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS)
         {
-            CreateGameObjectGroup(gameObject);
-
-            var components = gameObject.GetComponents<Component>();
-            foreach (var component in components)
+            foreach (var gameObject in allGameObjects)
             {
-                CreateComponentNode(component);
+                CreateGameObjectGroup(gameObject);
+
+                var components = gameObject.GetComponents<Component>();
+                foreach (var component in components)
+                {
+                    CreateComponentNode(component);
+                }
+            }
+        }
+
+        // nodes contain attributes that correspond to attached components
+        else if (style == Constants.ComponentGraphDrawType.NODES_ARE_GAME_OBJECTS)
+        {
+            foreach (var gameObject in allGameObjects)
+            {
+                var components = gameObject.GetComponents<Component>();
+                CreateGameObjectNode(gameObject, components);
+                _debuggingLabel.text = "TESTINNNN";
             }
         }
 
@@ -250,6 +277,52 @@ public class ComponentGraphView : GraphView
             group.AddElement(node);
         }
     }
+
+    private void CreateGameObjectNode(GameObject gameObject, Component[] components)
+{
+    var node = new Node 
+    {
+        title = gameObject.name,
+        viewDataKey = GUID.Generate().ToString()
+    };
+
+    // Create input port
+    var inputPort = Port.Create<Edge>(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(GameObject));
+    inputPort.portName = "Input";
+    node.inputContainer.Add(inputPort);
+
+    // Add GameObject info
+    var objectField = new ObjectField("GameObject")
+    {
+        objectType = typeof(GameObject),
+        value = gameObject,
+        allowSceneObjects = true
+    };
+    node.mainContainer.Add(objectField);
+
+    // Add component list
+    foreach (var component in components)
+    {
+        var componentField = new ObjectField(component.GetType().Name)
+        {
+            objectType = component.GetType(),
+            value = component,
+            allowSceneObjects = true
+        };
+        node.mainContainer.Add(componentField);
+    }
+
+    // Create output port
+    var outputPort = Port.Create<Edge>(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(GameObject));
+    outputPort.portName = "Output";
+    node.outputContainer.Add(outputPort);
+
+    // Set node position
+    node.SetPosition(new Rect(Vector2.zero, new Vector2(200, 150)));
+    
+    // Add node to graph
+    AddElement(node);
+}
 
     private static void AddComponentProperties(Node node, Component component)
     {
@@ -432,4 +505,8 @@ public class ComponentGraphView : GraphView
         minimap.SetPosition(new Rect(15, 50, 200, 100));
         Add(minimap);
     }
+}
+
+internal class ComponentGraphDrawType
+{
 }
