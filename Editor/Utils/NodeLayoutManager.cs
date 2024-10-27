@@ -36,7 +36,7 @@ public abstract class NodeLayoutManager
         }
     }
 
-    private static Vector2 GetNodeSize(Node node)
+    private static Vector2 GetNodeSize(GameObjectNode node)
     {
         // Try to get actual node size, fallback to defaults if not available
         var currentRect = node.GetPosition();
@@ -46,7 +46,7 @@ public abstract class NodeLayoutManager
         return new Vector2(width, height);
     }
 
-    private static void SetNodePosition(Node node, Vector2 position)
+    private static void SetNodePosition(GameObjectNode node, Vector2 position)
     {
         var size = GetNodeSize(node);
         var newRect = new Rect(position, size);

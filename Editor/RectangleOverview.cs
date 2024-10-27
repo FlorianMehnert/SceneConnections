@@ -1,12 +1,11 @@
-using UnityEngine;
-using UnityEditor;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Linq;
+using System.Reflection;
+using UnityEditor;
 using UnityEditor.ShortcutManagement;
-using UnityEditor.PackageManager.UI;
+using UnityEngine;
 
-namespace SceneConnections.EditorWindow
+namespace SceneConnections.Editor
 {
     public class RectangleWindow : UnityEditor.EditorWindow
     {
@@ -113,9 +112,6 @@ namespace SceneConnections.EditorWindow
             {
                 GUILayout.Space(10);
                 EditorGUILayout.LabelField("Selected: " + _selectedNode.GetType().Name, EditorStyles.boldLabel);
-                Editor editor = Editor.CreateEditor(_selectedNode);
-                editor.OnInspectorGUI();
-                DestroyImmediate(editor);
             }
         }
 

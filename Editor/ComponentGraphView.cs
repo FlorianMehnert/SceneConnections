@@ -11,13 +11,14 @@ using SceneConnections.EditorWindow;
 using UnityEditor.UIElements;
 using System.ComponentModel;
 using SceneConnections;
+using SceneConnections.Editor.Utils;
 using Object = UnityEngine.Object;
 
 
 public class ComponentGraphView : GraphView
 {
-    private readonly Dictionary<UnityEngine.Component, Node> _componentNodes = new();
-    private readonly Dictionary<MonoScript, Node> _scriptNodes = new();
+    private readonly Dictionary<UnityEngine.Component, GameObjectNode> _componentNodes = new();
+    private readonly Dictionary<MonoScript, GameObjectNode> _scriptNodes = new();
     private readonly Dictionary<GameObject, Group> _gameObjectGroups = new();
 
     private List<GameObjectNode> _nodes;
@@ -126,7 +127,7 @@ public class ComponentGraphView : GraphView
         }
     }
 
-    private static bool IsCustomNodeMatch(Node node, string searchText)
+    private static bool IsCustomNodeMatch(GameObjectNode node, string searchText)
     {
         // Override this method to add custom search criteria
         // Example: searching through custom node properties
@@ -138,14 +139,14 @@ public class ComponentGraphView : GraphView
         return false;
     }
 
-    private void HighlightNode(Node node)
+    private void HighlightNode(GameObjectNode node)
     {
         node.style.backgroundColor = _highlightColor;
         // Optional: Add visual effects or animations here
         node.MarkDirtyRepaint();
     }
 
-    private void ResetNodeColor(Node node)
+    private void ResetNodeColor(GameObjectNode node)
     {
         node.style.backgroundColor = _defaultNodeColor;
         node.MarkDirtyRepaint();
@@ -182,9 +183,9 @@ public class ComponentGraphView : GraphView
             {
                 var group = kvp.Value;
 
-                if (_currentDebuggedRect < i && group.containedElements.OfType<Node>().ToArray().Count() > 1)
+                if (_currentDebuggedRect < i && group.containedElements.OfType<GameObjectNode>().ToArray().Count() > 1)
                 {
-                    _debuggingLabel.text = "i: " + i + " cur: " + _currentDebuggedRect + " size: " + group.containedElements.OfType<Node>().ToList()[1].contentRect.ToString();
+                    _debuggingLabel.text = "i: " + i + " cur: " + _currentDebuggedRect + " size: " + group.containedElements.OfType<GameObjectNode>().ToList()[1].contentRect.ToString();
                     group.selected = true;
                     break;
                 }
@@ -318,14 +319,14 @@ public class ComponentGraphView : GraphView
 
     private void CreateScriptNode(MonoScript script)
     {
-        var node = new ScriptNode(script)
+        var node = new GameObjectNode()
         {
             title = script.GetType().Name,
             userData = script
         };
 
         AddElement(node);
-        _scriptNodes[script] = node;
+        _nodes.Add(node);
     }
 
 
@@ -342,7 +343,7 @@ public class ComponentGraphView : GraphView
 
     private void CreateComponentNode(UnityEngine.Component component)
     {
-        var node = new Node
+        var node = new GameObjectNode
         {
             title = component.GetType().Name,
             userData = component
@@ -403,7 +404,7 @@ public class ComponentGraphView : GraphView
         NodeLayoutManager.LayoutNodes(_nodes);
     }
 
-    private static void AddComponentProperties(Node node, UnityEngine.Component component)
+    private static void AddComponentProperties(GameObjectNode node, UnityEngine.Component component)
     {
         var properties = component.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public)
             .Where(p => p.CanRead && !p.GetIndexParameters().Any());
@@ -442,7 +443,7 @@ public class ComponentGraphView : GraphView
         }
     }
 
-    private void CreateEdge(Node sourceNode, Node targetNode)
+    private void CreateEdge(GameObjectNode sourceNode, GameObjectNode targetNode)
     {
         var edge = new Edge
         {
@@ -454,7 +455,7 @@ public class ComponentGraphView : GraphView
         AddElement(edge);
     }
 
-    private static Port GeneratePort(Node node, Direction direction, Port.Capacity capacity)
+    private static Port GeneratePort(GameObjectNode node, Direction direction, Port.Capacity capacity)
     {
         return node.InstantiatePort(Orientation.Horizontal, direction, capacity, typeof(UnityEngine.Component));
     }

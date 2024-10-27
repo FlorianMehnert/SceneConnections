@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace SceneConnections.EditorWindow
+namespace SceneConnections.Editor
 {
     public class ComponentInstanceEditor : UnityEditor.EditorWindow
     {
@@ -32,9 +32,6 @@ namespace SceneConnections.EditorWindow
             if (_selectedComponent)
             {
                 _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
-                Editor editor = Editor.CreateEditor(_selectedComponent);
-                editor.DrawDefaultInspector();
-                EditorGUILayout.EndScrollView();
             }
             else
             {
