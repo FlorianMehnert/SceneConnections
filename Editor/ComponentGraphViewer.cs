@@ -29,7 +29,7 @@ public class ComponentGraphViewer : EditorWindow
         var setComponentGraphDrawType = new DropdownField("Set Component Graph Draw Type")
         {
             choices = { "nodes are components", "nodes are game objects" },
-            value = "nodes are components"
+            value = "nodes are game objects"
         };
 
         showGraphToggle.RegisterValueChangedCallback(evt => { _graphView.SetShowScripts(evt.newValue); });

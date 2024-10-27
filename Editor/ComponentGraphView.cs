@@ -16,6 +16,8 @@ public class ComponentGraphView : GraphView
     private readonly Dictionary<Component, Node> _componentNodes = new();
     private readonly Dictionary<MonoScript, Node> _scriptNodes = new();
     private readonly Dictionary<GameObject, Group> _gameObjectGroups = new();
+
+    private GameObjectNode[] _nodes;
     private bool _needsLayout;
     private readonly Label _loadingLabel;
 
@@ -25,7 +27,7 @@ public class ComponentGraphView : GraphView
 
     private bool _showScripts;
 
-    private Constants.ComponentGraphDrawType _drawType = Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS;
+    private Constants.ComponentGraphDrawType _drawType = Constants.ComponentGraphDrawType.NODES_ARE_GAME_OBJECTS;
 
 
     public ComponentGraphView()
@@ -54,7 +56,6 @@ public class ComponentGraphView : GraphView
                 color = Color.white
             }
         };
-        Add(_loadingLabel);
 
         _debuggingLabel = new Label("DEBUGING_PLACEHOLDER")
         {
@@ -68,6 +69,8 @@ public class ComponentGraphView : GraphView
                 color = Color.black
             }
         };
+
+        Add(_loadingLabel);
         Add(_debuggingLabel);
         RegisterCallback<KeyDownEvent>(OnKeyDownEvent);
     }
@@ -93,7 +96,7 @@ public class ComponentGraphView : GraphView
         else if (evt.ctrlKey && evt.keyCode == KeyCode.L)
         {
             _debuggingLabel.text = "layout nodes";
-            LayoutNodes();
+            LayoutNodes(_drawType);
             evt.StopPropagation();
         }
         else if (evt.ctrlKey && evt.keyCode == KeyCode.I)
@@ -116,9 +119,15 @@ public class ComponentGraphView : GraphView
         }
         else if (evt.ctrlKey && evt.keyCode == KeyCode.T)
         {
-            Group[] groups = _gameObjectGroups.Values.OfType<Group>().ToArray();
-            LayoutState layoutState = NodeUtils.OptimizeGroupLayouts(groups, padding: 15f);
-            layoutState.ApplyLayout();
+            if (_drawType == Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS)
+            {
+                Group[] groups = _gameObjectGroups.Values.OfType<Group>().ToArray();
+                LayoutState layoutState = NodeUtils.OptimizeGroupLayouts(groups, padding: 15f);
+                layoutState.ApplyLayout();
+            }
+            else if (_drawType == Constants.ComponentGraphDrawType.NODES_ARE_GAME_OBJECTS)
+            {
+            }
         }
     }
 
@@ -142,7 +151,7 @@ public class ComponentGraphView : GraphView
     {
         if (!_needsLayout) return;
 
-        LayoutNodes();
+        LayoutNodes(_drawType);
         _loadingLabel.style.display = DisplayStyle.None;
         _needsLayout = false;
     }
@@ -162,7 +171,7 @@ public class ComponentGraphView : GraphView
     private void CreateComponentGraph(Constants.ComponentGraphDrawType style = Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS)
     {
         var allGameObjects = Object.FindObjectsOfType<GameObject>();
-        
+
         // groups contain nodes that are components of a gameobject
         if (style == Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS)
         {
@@ -181,16 +190,18 @@ public class ComponentGraphView : GraphView
         // nodes contain attributes that correspond to attached components
         else if (style == Constants.ComponentGraphDrawType.NODES_ARE_GAME_OBJECTS)
         {
+            _nodes = new GameObjectNode[allGameObjects.Count()];
+            int i = 0;
             foreach (var gameObject in allGameObjects)
             {
                 var components = gameObject.GetComponents<Component>();
-                CreateGameObjectNode(gameObject, components);
+                _nodes[i] = CreateGameObjectNode(gameObject, components);
                 _debuggingLabel.text = "TESTINNNN";
             }
         }
 
         CreateEdges();
-        LayoutNodes();
+        LayoutNodes(style);
     }
 
     private void CreateScriptGraph()
@@ -204,7 +215,7 @@ public class ComponentGraphView : GraphView
         CreateNodesForScripts(scripts);
 
         CreateEdges();
-        LayoutNodes();
+        LayoutNodes(_drawType);
     }
 
 
@@ -278,51 +289,50 @@ public class ComponentGraphView : GraphView
         }
     }
 
-    private void CreateGameObjectNode(GameObject gameObject, Component[] components)
-{
-    var node = new Node 
+    private GameObjectNode CreateGameObjectNode(GameObject gameObject, Component[] components)
     {
-        title = gameObject.name,
-        viewDataKey = GUID.Generate().ToString()
-    };
-
-    // Create input port
-    var inputPort = Port.Create<Edge>(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(GameObject));
-    inputPort.portName = "Input";
-    node.inputContainer.Add(inputPort);
-
-    // Add GameObject info
-    var objectField = new ObjectField("GameObject")
-    {
-        objectType = typeof(GameObject),
-        value = gameObject,
-        allowSceneObjects = true
-    };
-    node.mainContainer.Add(objectField);
-
-    // Add component list
-    foreach (var component in components)
-    {
-        var componentField = new ObjectField(component.GetType().Name)
+        var node = new GameObjectNode
         {
-            objectType = component.GetType(),
-            value = component,
+            title = gameObject.name,
+            viewDataKey = GUID.Generate().ToString()
+        };
+
+
+        // Create input port
+        var inputPort = Port.Create<Edge>(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(GameObject));
+        inputPort.portName = "Input";
+        node.inputContainer.Add(inputPort);
+
+        // Add GameObject info
+        var objectField = new ObjectField("GameObject")
+        {
+            objectType = typeof(GameObject),
+            value = gameObject,
             allowSceneObjects = true
         };
-        node.mainContainer.Add(componentField);
+        node.mainContainer.Add(objectField);
+
+        // Add component list
+        foreach (var component in components)
+        {
+            var componentField = new ObjectField(component.GetType().Name)
+            {
+                objectType = component.GetType(),
+                value = component,
+                allowSceneObjects = true
+            };
+            node.mainContainer.Add(componentField);
+        }
+
+        // Create output port
+        var outputPort = Port.Create<Edge>(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(GameObject));
+        outputPort.portName = "Output";
+        node.outputContainer.Add(outputPort);
+
+        // Add node to graph
+        AddElement(node);
+        return node;
     }
-
-    // Create output port
-    var outputPort = Port.Create<Edge>(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(GameObject));
-    outputPort.portName = "Output";
-    node.outputContainer.Add(outputPort);
-
-    // Set node position
-    node.SetPosition(new Rect(Vector2.zero, new Vector2(200, 150)));
-    
-    // Add node to graph
-    AddElement(node);
-}
 
     private static void AddComponentProperties(Node node, Component component)
     {
@@ -383,32 +393,38 @@ public class ComponentGraphView : GraphView
     /// <summary>
     /// Call to organize the layout of all nodes
     /// </summary>
-    private void LayoutNodes()
+    private void LayoutNodes(Constants.ComponentGraphDrawType style)
     {
-        float x = 0;
-        float y = 0;
-        float maxHeightInRow = 0;
-        const float groupPadding = 50;
-        const float maxWidth = 5000;
-
-        foreach (var kvp in _gameObjectGroups)
+        if (style == Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS)
         {
-            var group = kvp.Value;
-            LayoutNodesInGroup(group);
-            group.UpdateGeometryFromContent();
+            float x = 0;
+            float y = 0;
+            float maxHeightInRow = 0;
+            const float groupPadding = 50;
+            const float maxWidth = 5000;
 
-            // Check if the group exceeds the row width
-            if (x + group.contentRect.width > maxWidth)
+            foreach (var kvp in _gameObjectGroups)
             {
-                x = 0;
-                y += maxHeightInRow + groupPadding;
-                maxHeightInRow = 0;
+                var group = kvp.Value;
+                LayoutNodesInGroup(group);
+                group.UpdateGeometryFromContent();
+
+                // Check if the group exceeds the row width
+                if (x + group.contentRect.width > maxWidth)
+                {
+                    x = 0;
+                    y += maxHeightInRow + groupPadding;
+                    maxHeightInRow = 0;
+                }
+
+                group.SetPosition(new Rect(x, y, group.contentRect.width, group.contentRect.height));
+
+                x += group.contentRect.width + groupPadding;
+                maxHeightInRow = Mathf.Max(maxHeightInRow, group.contentRect.height);
             }
-
-            group.SetPosition(new Rect(x, y, group.contentRect.width, group.contentRect.height));
-
-            x += group.contentRect.width + groupPadding;
-            maxHeightInRow = Mathf.Max(maxHeightInRow, group.contentRect.height);
+        }
+        else if (style == Constants.ComponentGraphDrawType.NODES_ARE_GAME_OBJECTS)
+        {
         }
     }
 
@@ -472,30 +488,19 @@ public class ComponentGraphView : GraphView
             }
             EditorApplication.delayCall += () =>
             {
-                LayoutNodes();
+                LayoutNodes(_drawType);
                 // Force the graph view to update
                 UpdateViewTransform(viewTransform.position, viewTransform.scale);
             };
         }
         else
         {
-            // grab all elements of type node
-            foreach (var node in _gameObjectGroups.Values.SelectMany(group => group.containedElements.OfType<Node>()))
-            {
-                // Force the node to calculate its layout
-                //node.RefreshExpandedState();
-                //node.RefreshPorts();
-            }
-
             // Schedule the layout for the next frame
-            EditorApplication.delayCall += () =>
+            /* EditorApplication.delayCall += () =>
             {
-                LayoutNodes();
-                // Force the graph view to update
-                //UpdateViewTransform(viewTransform.position, viewTransform.scale);
-            };
+                LayoutNodes(_drawType);
+            }; */
         }
-
     }
 
 
