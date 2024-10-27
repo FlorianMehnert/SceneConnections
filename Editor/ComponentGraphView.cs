@@ -1,6 +1,6 @@
+using System;
 using UnityEngine;
 using UnityEditor;
-
 using UnityEngine.UIElements;
 using UnityEditor.Experimental.GraphView;
 using System.Collections.Generic;
@@ -10,6 +10,8 @@ using Edge = UnityEditor.Experimental.GraphView.Edge;
 using SceneConnections.EditorWindow;
 using UnityEditor.UIElements;
 using System.ComponentModel;
+using SceneConnections;
+using Object = UnityEngine.Object;
 
 
 public class ComponentGraphView : GraphView
@@ -28,7 +30,11 @@ public class ComponentGraphView : GraphView
 
     private bool _showScripts;
 
-    private Constants.ComponentGraphDrawType _drawType = Constants.ComponentGraphDrawType.NODES_ARE_GAME_OBJECTS;
+    private Constants.ComponentGraphDrawType _drawType = Constants.ComponentGraphDrawType.NodesAreGameObjects;
+
+    private TextField _searchField;
+    private readonly Color _defaultNodeColor = new(0.8f, 0.8f, 0.8f, 1f);
+    private readonly Color _highlightColor = new(1f, 0.8f, 0.2f, 1f);
 
 
     public ComponentGraphView()
@@ -74,6 +80,75 @@ public class ComponentGraphView : GraphView
         Add(_loadingLabel);
         Add(_debuggingLabel);
         RegisterCallback<KeyDownEvent>(OnKeyDownEvent);
+
+        // Create and configure search bar
+        CreateSearchBar();
+    }
+
+    private void CreateSearchBar()
+    {
+        _searchField = new TextField();
+        _searchField.RegisterValueChangedCallback(OnSearchTextChanged);
+        _searchField.style.position = Position.Absolute;
+        _searchField.style.top = 5;
+        _searchField.style.left = 5;
+        _searchField.style.width = 200;
+        _searchField.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
+        Add(_searchField);
+    }
+
+    private void OnSearchTextChanged(ChangeEvent<string> evt)
+    {
+        string searchText = evt.newValue.ToLowerInvariant();
+        SearchNodes(searchText);
+    }
+
+    private void SearchNodes(string searchText)
+    {
+        // Reset all nodes to default color
+        foreach (var node in _nodes)
+        {
+            ResetNodeColor(node);
+        }
+
+        if (string.IsNullOrEmpty(searchText))
+            return;
+
+        // Find and highlight matching nodes
+        var matchingNodes = _nodes.Where(n =>
+            n.title.ToLowerInvariant().Contains(searchText) ||
+            IsCustomNodeMatch(n, searchText)
+        );
+
+        foreach (var node in matchingNodes)
+        {
+            HighlightNode(node);
+        }
+    }
+
+    private static bool IsCustomNodeMatch(Node node, string searchText)
+    {
+        // Override this method to add custom search criteria
+        // Example: searching through custom node properties
+        if (node is GameObjectNode customNode)
+        {
+            return customNode.title.ToLowerInvariant().Contains(searchText);
+        }
+
+        return false;
+    }
+
+    private void HighlightNode(Node node)
+    {
+        node.style.backgroundColor = _highlightColor;
+        // Optional: Add visual effects or animations here
+        node.MarkDirtyRepaint();
+    }
+
+    private void ResetNodeColor(Node node)
+    {
+        node.style.backgroundColor = _defaultNodeColor;
+        node.MarkDirtyRepaint();
     }
 
     public void SetShowScripts(bool showScripts)
@@ -113,20 +188,22 @@ public class ComponentGraphView : GraphView
                     group.selected = true;
                     break;
                 }
+
                 ++i;
             }
+
             ++_currentDebuggedRect;
             evt.StopPropagation();
         }
         else if (evt.ctrlKey && evt.keyCode == KeyCode.T)
         {
-            if (_drawType == Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS)
+            if (_drawType == Constants.ComponentGraphDrawType.NodesAreComponents)
             {
                 Group[] groups = _gameObjectGroups.Values.OfType<Group>().ToArray();
                 LayoutState layoutState = NodeUtils.OptimizeGroupLayouts(groups, padding: 15f);
                 layoutState.ApplyLayout();
             }
-            else if (_drawType == Constants.ComponentGraphDrawType.NODES_ARE_GAME_OBJECTS)
+            else if (_drawType == Constants.ComponentGraphDrawType.NodesAreGameObjects)
             {
                 LayoutGameObjectNodes();
             }
@@ -144,6 +221,7 @@ public class ComponentGraphView : GraphView
         {
             CreateGraph(_drawType);
         }
+
         _loadingLabel.style.display = DisplayStyle.Flex;
         _needsLayout = true;
         EditorApplication.delayCall += PerformLayout;
@@ -170,34 +248,41 @@ public class ComponentGraphView : GraphView
     /// 
     /// </summary>
     /// <param name="style">ComponentGraphDrawType deciding wheter nodes are game objects or nodes are components grouped using groups</param>
-    private void CreateGraph(Constants.ComponentGraphDrawType style = Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS)
+    private void CreateGraph(Constants.ComponentGraphDrawType style = Constants.ComponentGraphDrawType.NodesAreComponents)
     {
         var allGameObjects = Object.FindObjectsOfType<GameObject>();
 
-        // groups contain nodes that are components of a gameobject
-        if (style == Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS)
+        switch (style)
         {
-            foreach (var gameObject in allGameObjects)
+            // groups contain nodes that are components of a game object
+            case Constants.ComponentGraphDrawType.NodesAreComponents:
             {
-                CreateGameObjectGroup(gameObject);
-
-                var components = gameObject.GetComponents<UnityEngine.Component>();
-                foreach (var component in components)
+                foreach (var gameObject in allGameObjects)
                 {
-                    CreateComponentNode(component);
-                }
-            }
-        }
+                    CreateGameObjectGroup(gameObject);
 
-        // nodes contain attributes that correspond to attached components
-        else if (style == Constants.ComponentGraphDrawType.NODES_ARE_GAME_OBJECTS)
-        {
-            _nodes = new List<GameObjectNode>();
-            foreach (var gameObject in allGameObjects)
-            {
-                var components = gameObject.GetComponents<UnityEngine.Component>();
-                _nodes.Add(CreateGameObjectNode(gameObject, components));
+                    var components = gameObject.GetComponents<UnityEngine.Component>();
+                    foreach (var component in components)
+                    {
+                        CreateComponentNode(component);
+                    }
+                }
+
+                break;
             }
+            // nodes contain attributes that correspond to attached components
+            case Constants.ComponentGraphDrawType.NodesAreGameObjects:
+            {
+                _nodes = new List<GameObjectNode>();
+                foreach (var gameObject in allGameObjects)
+                {
+                    var components = gameObject.GetComponents<UnityEngine.Component>();
+                    _nodes.Add(CreateGameObjectNode(gameObject, components));
+                }
+                break;
+            }
+            default:
+                throw new ArgumentOutOfRangeException(nameof(style), style, null);
         }
 
         CreateEdges();
@@ -208,9 +293,9 @@ public class ComponentGraphView : GraphView
     {
         // query monoscripts
         MonoScript[] scripts = AssetDatabase.FindAssets("t:MonoScript")
-        .Select(guid => AssetDatabase.LoadAssetAtPath<MonoScript>(AssetDatabase.GUIDToAssetPath(guid)))
-        .Where(script => script != null)
-        .ToArray();
+            .Select(guid => AssetDatabase.LoadAssetAtPath<MonoScript>(AssetDatabase.GUIDToAssetPath(guid)))
+            .Where(script => script != null)
+            .ToArray();
 
         CreateNodesForScripts(scripts);
 
@@ -313,7 +398,8 @@ public class ComponentGraphView : GraphView
         return node;
     }
 
-    private void LayoutGameObjectNodes(){
+    private void LayoutGameObjectNodes()
+    {
         NodeLayoutManager.LayoutNodes(_nodes);
     }
 
@@ -378,7 +464,7 @@ public class ComponentGraphView : GraphView
     /// </summary>
     private void LayoutNodes(Constants.ComponentGraphDrawType style)
     {
-        if (style == Constants.ComponentGraphDrawType.NODES_ARE_COMPONENTS)
+        if (style == Constants.ComponentGraphDrawType.NodesAreComponents)
         {
             float x = 0;
             float y = 0;
@@ -406,7 +492,7 @@ public class ComponentGraphView : GraphView
                 maxHeightInRow = Mathf.Max(maxHeightInRow, group.contentRect.height);
             }
         }
-        else if (style == Constants.ComponentGraphDrawType.NODES_ARE_GAME_OBJECTS)
+        else if (style == Constants.ComponentGraphDrawType.NodesAreGameObjects)
         {
         }
     }
@@ -439,6 +525,7 @@ public class ComponentGraphView : GraphView
                 currentY += maxHeightInRow + nodePadding;
                 maxHeightInRow = 0;
             }
+
             // Set the position
             var newRect = new Rect(currentX, currentY, nodeWidth, nodeHeight);
             node.SetPosition(newRect);
@@ -469,6 +556,7 @@ public class ComponentGraphView : GraphView
             foreach (var node in _scriptNodes)
             {
             }
+
             EditorApplication.delayCall += () =>
             {
                 LayoutNodes(_drawType);

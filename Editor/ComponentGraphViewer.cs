@@ -1,8 +1,8 @@
 using UnityEngine;
 using UnityEditor;
-
 using UnityEngine.UIElements;
 using System.Collections.Generic;
+using SceneConnections;
 
 
 public class ComponentGraphViewer : EditorWindow
@@ -33,26 +33,26 @@ public class ComponentGraphViewer : EditorWindow
         };
 
         showGraphToggle.RegisterValueChangedCallback(evt => { _graphView.SetShowScripts(evt.newValue); });
-        setComponentGraphDrawType.RegisterValueChangedCallback(evt => { _graphView.SetComponentGraphDrawType(Constants.ToCGDT(evt.newValue)); });
+        setComponentGraphDrawType.RegisterValueChangedCallback(evt => { _graphView.SetComponentGraphDrawType(Constants.ToCgdt(evt.newValue)); });
         rootVisualElement.Add(showGraphToggle);
         rootVisualElement.Add(setComponentGraphDrawType);
 
         var refreshButton = new Button(() =>
-        {
-            if (_isRefreshing) return;
-            _isRefreshing = true;
-            EditorApplication.delayCall += () =>
             {
-                _graphView.RefreshGraph();
-                // Schedule a second layout pass after everything is initialized
+                if (_isRefreshing) return;
+                _isRefreshing = true;
                 EditorApplication.delayCall += () =>
                 {
-                    _graphView.ForceLayoutRefresh();
-                    _isRefreshing = false;
+                    _graphView.RefreshGraph();
+                    // Schedule a second layout pass after everything is initialized
+                    EditorApplication.delayCall += () =>
+                    {
+                        _graphView.ForceLayoutRefresh();
+                        _isRefreshing = false;
+                    };
                 };
-            };
-        })
-        { text = "Refresh Graph" };
+            })
+            { text = "Refresh Graph" };
         rootVisualElement.Add(refreshButton);
     }
 

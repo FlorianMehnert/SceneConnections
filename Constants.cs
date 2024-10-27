@@ -1,24 +1,26 @@
 using System;
 
-public static class Constants
+namespace SceneConnections
 {
-    public enum ComponentGraphDrawType
+    public static class Constants
     {
-        NONE = 0,
-        NODES_ARE_COMPONENTS = 1,
-        NODES_ARE_GAME_OBJECTS = 2
-    }
+        public enum ComponentGraphDrawType
+        {
+            NodesAreComponents = 1,
+            NodesAreGameObjects = 2
+        }
 
-    public static ComponentGraphDrawType ToCGDT(string s)
-    {
-        if (s == "nodes are components")
+        public static ComponentGraphDrawType ToCgdt(string s)
         {
-            return ComponentGraphDrawType.NODES_ARE_COMPONENTS;
+            switch (s)
+            {
+                case "nodes are components":
+                    return ComponentGraphDrawType.NodesAreComponents;
+                case "nodes are game objects":
+                    return ComponentGraphDrawType.NodesAreGameObjects;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(s), s, null);
+            }
         }
-        else if (s == "nodes are game objects")
-        {
-            return ComponentGraphDrawType.NODES_ARE_GAME_OBJECTS;
-        }
-        return ComponentGraphDrawType.NONE;
     }
 }

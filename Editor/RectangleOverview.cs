@@ -39,13 +39,13 @@ namespace SceneConnections.EditorWindow
             public List<Component> Components = new();
             public bool IsBuiltIn;
         }
-        
+
         private void OnEnable()
         {
             // Subscribe to Unity's update event
             EditorApplication.update += OnEditorUpdate;
         }
-        
+
         private void OnDisable()
         {
             // Unsubscribe from Unity's update event
@@ -61,7 +61,7 @@ namespace SceneConnections.EditorWindow
                 Repaint();
             }
         }
-        
+
         private bool CheckForSceneChanges()
         {
             // Implement logic to check for relevant changes in the scene
@@ -84,8 +84,8 @@ namespace SceneConnections.EditorWindow
             bool newIncludeBuiltIn = EditorGUILayout.ToggleLeft("Include Built-in", _includeBuiltInComponents);
             bool newShowEqualComponents = EditorGUILayout.ToggleLeft("Include Equal Components", _showEqualComponents);
 
-            if (newIncludeInactive != _includeInactiveObjects || 
-                newIncludeBuiltIn != _includeBuiltInComponents || 
+            if (newIncludeInactive != _includeInactiveObjects ||
+                newIncludeBuiltIn != _includeBuiltInComponents ||
                 newShowEqualComponents != _showEqualComponents)
             {
                 _includeInactiveObjects = newIncludeInactive;
@@ -113,12 +113,12 @@ namespace SceneConnections.EditorWindow
             {
                 GUILayout.Space(10);
                 EditorGUILayout.LabelField("Selected: " + _selectedNode.GetType().Name, EditorStyles.boldLabel);
-                Editor editor = Editor.CreateEditor(_selectedNode); 
+                Editor editor = Editor.CreateEditor(_selectedNode);
                 editor.OnInspectorGUI();
                 DestroyImmediate(editor);
             }
         }
-        
+
         private Component GetNodeAtPosition(Vector2 mousePosition)
         {
             foreach (var kvp in _nodeInfos)
@@ -129,6 +129,7 @@ namespace SceneConnections.EditorWindow
                     return kvp.Key;
                 }
             }
+
             return null;
         }
 
@@ -146,6 +147,7 @@ namespace SceneConnections.EditorWindow
                         e.Use();
                         Repaint();
                     }
+
                     break;
 
                 case EventType.MouseDown:
@@ -164,6 +166,7 @@ namespace SceneConnections.EditorWindow
                             e.Use();
                         }
                     }
+
                     break;
 
                 case EventType.MouseDrag:
@@ -179,6 +182,7 @@ namespace SceneConnections.EditorWindow
                         e.Use();
                         Repaint();
                     }
+
                     break;
 
                 case EventType.MouseUp:
@@ -192,6 +196,7 @@ namespace SceneConnections.EditorWindow
                         _draggedNode = null;
                         e.Use();
                     }
+
                     break;
             }
         }
@@ -205,6 +210,7 @@ namespace SceneConnections.EditorWindow
                 {
                     DrawGroup(groupKvp.Key, groupKvp.Value);
                 }
+
                 foreach (var kvp in _nodeInfos)
                 {
                     DrawNode(kvp.Key, kvp.Value);
@@ -230,12 +236,12 @@ namespace SceneConnections.EditorWindow
                 window._graphNeedsUpdate = false;
             }
         }
-        
+
         private void GenerateGraph()
         {
             _nodeInfos.Clear();
             _groupInfos.Clear();
-            Component[] allComponents = _includeInactiveObjects 
+            Component[] allComponents = _includeInactiveObjects
                 ? Resources.FindObjectsOfTypeAll<Component>()
                 : FindObjectsOfType<Component>();
 
@@ -259,6 +265,7 @@ namespace SceneConnections.EditorWindow
                             IsBuiltIn = isBuiltIn
                         };
                     }
+
                     _groupInfos[componentType].Components.Add(component);
                 }
             }
@@ -313,14 +320,14 @@ namespace SceneConnections.EditorWindow
                 maxHeight = Mathf.Max(maxHeight, groupSize.y);
             }
         }
-        
+
         private void DrawGroup(System.Type groupType, GroupInfo groupInfo)
         {
             var scaledRect = ScaleRect(groupInfo.Position);
-            
+
             // Set color based on built-in status
             GUI.color = groupInfo.IsBuiltIn ? new Color(0.8f, 0.9f, 1f, 0.5f) : new Color(1f, 1f, 1f, 0.5f);
-            
+
             GUI.Box(scaledRect, "");
             GUI.color = Color.white;
 
@@ -335,13 +342,13 @@ namespace SceneConnections.EditorWindow
         private void DrawNode(Component component, NodeInfo info)
         {
             var scaledRect = ScaleRect(info.Position);
-            
+
             // Set color based on component type and active state
             if (info.IsBuiltIn)
                 GUI.color = info.IsActive ? new Color(0.1f, 0.9f, 1f) : new Color(0.9f, 0.2f, 0.1f);
             else
                 GUI.color = info.IsActive ? Color.white : new Color(0.7f, 0.1f, 0.7f);
-            
+
             GUI.Box(scaledRect, "");
             GUI.color = Color.white;
 
@@ -362,7 +369,7 @@ namespace SceneConnections.EditorWindow
                 if (Event.current.type == EventType.MouseDown && Event.current.button == 0)
                 {
                     _selectedNode = component;
-                    
+
                     // might be causing some lag
                     Repaint();
                 }
@@ -380,7 +387,7 @@ namespace SceneConnections.EditorWindow
             foreach (Component component in groupInfo.Components)
             {
                 Vector2 nodeSize = CalculateNodeSize(component);
-                
+
                 if (rowWidth + nodeSize.x + 20 > position.width * 0.8f) // Limit row width to 80% of window width
                 {
                     // New row
@@ -406,134 +413,135 @@ namespace SceneConnections.EditorWindow
         }
 
 
-    private bool IsBuiltInComponent(Component component)
-    {
-        System.Type componentType = component.GetType();
-        string namespaceName = componentType.Namespace;
-
-        // Check if the component is from Unity's built-in namespaces
-        if (!string.IsNullOrEmpty(namespaceName) && 
-            (namespaceName.StartsWith("UnityEngine") || namespaceName.StartsWith("UnityEditor")))
+        private bool IsBuiltInComponent(Component component)
         {
-            return true;
+            System.Type componentType = component.GetType();
+            string namespaceName = componentType.Namespace;
+
+            // Check if the component is from Unity's built-in namespaces
+            if (!string.IsNullOrEmpty(namespaceName) &&
+                (namespaceName.StartsWith("UnityEngine") || namespaceName.StartsWith("UnityEditor")))
+            {
+                return true;
+            }
+
+            // Check if the component is a built-in Unity component without a namespace
+            string[] builtInComponents =
+            {
+                "Transform", "RectTransform", "Rigidbody", "Rigidbody2D", "Collider", "Collider2D",
+                "MeshRenderer", "SkinnedMeshRenderer", "Camera", "Light", "AudioSource", "AudioListener",
+                "Animator", "Animation", "Canvas", "CanvasRenderer", "GraphicRaycaster", "ParticleSystem"
+                // Add more built-in component names as needed
+            };
+
+            return builtInComponents.Contains(componentType.Name);
         }
 
-        // Check if the component is a built-in Unity component without a namespace
-        string[] builtInComponents =
+        private void AnalyzeConnections(Component component)
         {
-            "Transform", "RectTransform", "Rigidbody", "Rigidbody2D", "Collider", "Collider2D",
-            "MeshRenderer", "SkinnedMeshRenderer", "Camera", "Light", "AudioSource", "AudioListener",
-            "Animator", "Animation", "Canvas", "CanvasRenderer", "GraphicRaycaster", "ParticleSystem"
-            // Add more built-in component names as needed
-        };
-
-        return builtInComponents.Contains(componentType.Name);
-    }
-
-    private void AnalyzeConnections(Component component)
-    {
-        FieldInfo[] fields = component.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-        foreach (FieldInfo field in fields)
-        {
-            if (typeof(Component).IsAssignableFrom(field.FieldType))
+            FieldInfo[] fields = component.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            foreach (FieldInfo field in fields)
             {
-                Component connectedComponent = field.GetValue(component) as Component;
-                if (connectedComponent && _nodeInfos.TryGetValue(connectedComponent, out var info))
+                if (typeof(Component).IsAssignableFrom(field.FieldType))
                 {
-                    _nodeInfos[component].Outputs.Add(connectedComponent);
+                    Component connectedComponent = field.GetValue(component) as Component;
+                    if (connectedComponent && _nodeInfos.TryGetValue(connectedComponent, out var info))
+                    {
+                        _nodeInfos[component].Outputs.Add(connectedComponent);
+                        info.Inputs.Add(component);
+                    }
+                }
+            }
+
+            // Check for connections through GameObject
+            foreach (Component otherComponent in component.gameObject.GetComponents<Component>())
+            {
+                if (otherComponent != component && _nodeInfos.TryGetValue(otherComponent, out var info))
+                {
+                    _nodeInfos[component].Outputs.Add(otherComponent);
                     info.Inputs.Add(component);
                 }
             }
         }
 
-        // Check for connections through GameObject
-        foreach (Component otherComponent in component.gameObject.GetComponents<Component>())
+        private void DrawConnections()
         {
-            if (otherComponent != component && _nodeInfos.TryGetValue(otherComponent, out var info))
+            foreach (var kvp in _nodeInfos)
             {
-                _nodeInfos[component].Outputs.Add(otherComponent);
-                info.Inputs.Add(component);
-            }
-        }
-    }
+                Component component = kvp.Key;
+                NodeInfo info = kvp.Value;
+                Rect startRect = ScaleRect(info.Position);
 
-    private void DrawConnections()
-    {
-        foreach (var kvp in _nodeInfos)
-        {
-            Component component = kvp.Key;
-            NodeInfo info = kvp.Value;
-            Rect startRect = ScaleRect(info.Position);
-
-            foreach (Component connectedComponent in info.Outputs)
-            {
-                if (_nodeInfos.TryGetValue(connectedComponent, out NodeInfo connectedInfo))
+                foreach (Component connectedComponent in info.Outputs)
                 {
-                    Rect endRect = ScaleRect(connectedInfo.Position);
-                    if (connectedComponent.gameObject == component.gameObject)
+                    if (_nodeInfos.TryGetValue(connectedComponent, out NodeInfo connectedInfo))
                     {
-                        if (_showEqualComponents)
+                        Rect endRect = ScaleRect(connectedInfo.Position);
+                        if (connectedComponent.gameObject == component.gameObject)
                         {
-                            DrawConnectionLine(GetConnector(startRect, false), GetConnector(endRect, true), Color.green);
+                            if (_showEqualComponents)
+                            {
+                                DrawConnectionLine(GetConnector(startRect, false), GetConnector(endRect, true), Color.green);
+                            }
                         }
-                    }
-                    else
-                    {
-                        DrawConnectionLine(GetConnector(startRect, false), GetConnector(endRect, true), Color.blue);
+                        else
+                        {
+                            DrawConnectionLine(GetConnector(startRect, false), GetConnector(endRect, true), Color.blue);
+                        }
                     }
                 }
             }
         }
-    }
 
-    /// <summary>
-    /// Get the Position of the left/right connector
-    /// </summary>
-    /// <param name="rect">rectangle for which to calculate connector positions</param>
-    /// <param name="left">return left connector if <c>true</c> and right connector if <c>false</c></param>
-    /// <returns></returns>
-    private Vector2 GetConnector(Rect rect, bool left)
-    {
-        return new Vector2(left ? rect.x : rect.x + rect.width, rect.center.y);
-    }
+        /// <summary>
+        /// Get the Position of the left/right connector
+        /// </summary>
+        /// <param name="rect">rectangle for which to calculate connector positions</param>
+        /// <param name="left">return left connector if <c>true</c> and right connector if <c>false</c></param>
+        /// <returns></returns>
+        private Vector2 GetConnector(Rect rect, bool left)
+        {
+            return new Vector2(left ? rect.x : rect.x + rect.width, rect.center.y);
+        }
 
-    /// <summary>
-    /// Connects two nodes together defined by start and end using a Bézier curve
-    /// </summary>
-    /// <param name="start">Vector2 defining the start of the connection</param>
-    /// <param name="end">Vector2 defining the end of the connection</param>
-    /// <param name="color">color of the connection</param>
-    private void DrawConnectionLine(Vector2 start, Vector2 end, Color color)
-    {
-        Handles.BeginGUI();
-        Handles.color = color;
-        Handles.DrawBezier(start, end, start + Vector2.right * 50, end - Vector2.right * 50, color, null, 4f);
-        Handles.EndGUI();
-    }
-    /// <summary>
-    /// calculates width based on Name of node
-    /// </summary>
-    /// <param name="component">mostly nodes should be inserted in here</param>
-    /// <returns><c>Vector2</c> containing width and height of the component</returns>
-    private Vector2 CalculateNodeSize(Component component)
-    {
-        float width = Mathf.Max(GUI.skin.box.CalcSize(new GUIContent(component.GetType().Name)).x + 20, 120);
-        float height = 75;
-        return new Vector2(width, height);
-    }
+        /// <summary>
+        /// Connects two nodes together defined by start and end using a Bézier curve
+        /// </summary>
+        /// <param name="start">Vector2 defining the start of the connection</param>
+        /// <param name="end">Vector2 defining the end of the connection</param>
+        /// <param name="color">color of the connection</param>
+        private void DrawConnectionLine(Vector2 start, Vector2 end, Color color)
+        {
+            Handles.BeginGUI();
+            Handles.color = color;
+            Handles.DrawBezier(start, end, start + Vector2.right * 50, end - Vector2.right * 50, color, null, 4f);
+            Handles.EndGUI();
+        }
 
-    /// <summary>
-    /// Method which returns a newly translated and scaled rectangle based on offset and scaling
-    /// based on <c>_graphOffset</c> and <c>_zoomLevel</c>
-    /// </summary>
-    private Rect ScaleRect(Rect original)
-    {
-        return new Rect(
-            (original.x + _graphOffset.x) * _zoomLevel,
-            (original.y + _graphOffset.y) * _zoomLevel,
-            original.width * _zoomLevel,
-            original.height * _zoomLevel
-        );
+        /// <summary>
+        /// calculates width based on Name of node
+        /// </summary>
+        /// <param name="component">mostly nodes should be inserted in here</param>
+        /// <returns><c>Vector2</c> containing width and height of the component</returns>
+        private Vector2 CalculateNodeSize(Component component)
+        {
+            float width = Mathf.Max(GUI.skin.box.CalcSize(new GUIContent(component.GetType().Name)).x + 20, 120);
+            float height = 75;
+            return new Vector2(width, height);
+        }
+
+        /// <summary>
+        /// Method which returns a newly translated and scaled rectangle based on offset and scaling
+        /// based on <c>_graphOffset</c> and <c>_zoomLevel</c>
+        /// </summary>
+        private Rect ScaleRect(Rect original)
+        {
+            return new Rect(
+                (original.x + _graphOffset.x) * _zoomLevel,
+                (original.y + _graphOffset.y) * _zoomLevel,
+                original.width * _zoomLevel,
+                original.height * _zoomLevel
+            );
+        }
     }
-}
 }
