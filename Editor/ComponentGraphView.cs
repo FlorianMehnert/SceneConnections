@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using SceneConnections.Editor.Utils;
+using SceneConnections.Editor.Utils.ScriptVisualization;
 using SceneConnections.EditorWindow;
 using UnityEditor;
 using UnityEditor.Experimental.GraphView;
@@ -34,6 +36,7 @@ namespace SceneConnections.Editor
         private bool _needsLayout;
 
         private List<Node> _nodes;
+        private Dictionary<string, Node> _scripts = new Dictionary<string, Node>();
 
         private TextField _searchField;
 
@@ -213,6 +216,9 @@ namespace SceneConnections.Editor
                         case Constants.ComponentGraphDrawType.NodesAreGameObjects:
                             LayoutNodesUsingManager();
                             break;
+                        case Constants.ComponentGraphDrawType.NodesAreScripts:
+                            LayoutNodesUsingManager();
+                            break;
                         default:
                             throw new ArgumentOutOfRangeException();
                     }
@@ -262,7 +268,7 @@ namespace SceneConnections.Editor
             Constants.ComponentGraphDrawType representation = Constants.ComponentGraphDrawType.NodesAreComponents)
         {
             var allGameObjects = Object.FindObjectsOfType<GameObject>();
-
+            _nodes = new List<Node>();
             switch (representation)
             {
                 // groups contain nodes that are components of a game object
@@ -284,13 +290,47 @@ namespace SceneConnections.Editor
                 // nodes contain attributes that correspond to attached components
                 case Constants.ComponentGraphDrawType.NodesAreGameObjects:
                 {
-                    _nodes = new List<Node>();
                     foreach (var gameObject in allGameObjects)
                     {
                         var components = gameObject.GetComponents<Component>();
                         _nodes.Add(CreateCompactNode(gameObject, components));
                     }
 
+                    break;
+                }
+                case Constants.ComponentGraphDrawType.NodesAreScripts:
+                {
+                    // 0. create dict that stores scripts and their corresponding references
+                    // 1. collect scripts
+                    // 2. parse scripts -> add references in nodes
+                    // 3. add node for each script with references
+                    // 4. update layout
+                    // 5. group if needed
+                    List<string> scriptPaths = ScriptFinder.GetAllScriptPaths();
+                    foreach (var scriptPath in scriptPaths)
+                    {
+                        var scriptName = Path.GetFileNameWithoutExtension(scriptPath);
+                        var node = new Node { title = scriptName };
+                        _scripts[scriptName] = node;
+                        _nodes.Add(node);
+                        AddElement(node);
+                    }
+
+                    // Add references as edges
+                    foreach (var scriptPath in scriptPaths)
+                    {
+                        string scriptName = Path.GetFileNameWithoutExtension(scriptPath);
+                        List<string> references = ClassParser.GetClassReferences(scriptPath);
+
+                        foreach (var reference in references)
+                        {
+                            if (_scripts.ContainsKey(reference))
+                            {
+                                CreateEdge(_scripts[scriptName], _scripts[reference]);
+                            }
+                        }
+                    }
+                    
                     break;
                 }
                 default:
@@ -301,48 +341,6 @@ namespace SceneConnections.Editor
 
             // TODO: figure out if the layout is for real not possible to perform at initialization
             LayoutNodes(representation);
-        }
-
-        private void CreateScriptGraph()
-        {
-            var scripts = AssetDatabase.FindAssets("t:MonoScript")
-                .Select(guid => AssetDatabase.LoadAssetAtPath<MonoScript>(AssetDatabase.GUIDToAssetPath(guid)))
-                .Where(script => script != null)
-                .ToArray();
-
-            CreateNodesForScripts(scripts);
-
-            CreateEdges();
-            LayoutNodes(_drawType);
-        }
-
-
-        private void CreateNodesForScripts(MonoScript[] scripts)
-        {
-            foreach (var script in scripts)
-            {
-                var scriptType = script.GetClass();
-                if (scriptType != null)
-                {
-                    CreateScriptNode(script);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Called for each MonoScript creating a new node while keeping track of nodes created in _nodes
-        /// </summary>
-        /// <param name="script"></param>
-        private void CreateScriptNode(MonoScript script)
-        {
-            var node = new Node
-            {
-                title = script.GetType().Name,
-                userData = script
-            };
-
-            AddElement(node);
-            _nodes.Add(node);
         }
 
 
