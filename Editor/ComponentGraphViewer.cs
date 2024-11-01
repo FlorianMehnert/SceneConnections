@@ -1,8 +1,8 @@
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.UIElements;
-using System.Collections.Generic;
 using SceneConnections;
+using SceneConnections.Editor;
 
 
 public class ComponentGraphViewer : EditorWindow
