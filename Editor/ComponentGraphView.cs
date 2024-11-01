@@ -1,41 +1,43 @@
 using System;
-using UnityEngine;
-using UnityEditor;
-using UnityEngine.UIElements;
-using UnityEditor.Experimental.GraphView;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Edge = UnityEditor.Experimental.GraphView.Edge;
-using SceneConnections.EditorWindow;
-using UnityEditor.UIElements;
-using System.ComponentModel;
 using SceneConnections;
 using SceneConnections.Editor.Utils;
+using SceneConnections.EditorWindow;
+using UnityEditor;
+using UnityEditor.Experimental.GraphView;
+using UnityEditor.UIElements;
+using UnityEngine;
+using UnityEngine.UIElements;
+using Edge = UnityEditor.Experimental.GraphView.Edge;
 using Object = UnityEngine.Object;
 
 
 public class ComponentGraphView : GraphView
 {
-    private readonly Dictionary<UnityEngine.Component, GameObjectNode> _componentNodes = new();
-    private readonly Dictionary<MonoScript, GameObjectNode> _scriptNodes = new();
-    private readonly Dictionary<GameObject, Group> _gameObjectGroups = new();
-
-    private List<GameObjectNode> _nodes;
-    private bool _needsLayout;
-    private readonly Label _loadingLabel;
+    /// <summary>
+    /// Store all Node ↔ Component relationships for the cases of <b>NodesAreComponents</b>
+    /// </summary>
+    private readonly Dictionary<Component, Node> _componentNodes = new();
 
     private readonly Label _debuggingLabel;
+    private readonly Color _defaultNodeColor = new(0.2f, 0.2f, 0.2f, .5f);
+    private readonly Dictionary<GameObject, Group> _gameObjectGroups = new();
+    private readonly Color _highlightColor = new(1f, 0.8f, 0.2f, 1f);
+    private readonly Label _loadingLabel;
+    private readonly Dictionary<MonoScript, GameObjectNode> _scriptNodes = new();
 
     private int _currentDebuggedRect = 0;
 
-    private bool _showScripts;
-
     private Constants.ComponentGraphDrawType _drawType = Constants.ComponentGraphDrawType.NodesAreGameObjects;
+    private bool _needsLayout;
+
+    private List<Node> _nodes;
 
     private TextField _searchField;
-    private readonly Color _defaultNodeColor = new(0.8f, 0.8f, 0.8f, 1f);
-    private readonly Color _highlightColor = new(1f, 0.8f, 0.2f, 1f);
+
+    private bool _showScripts;
 
 
     public ComponentGraphView()
@@ -65,7 +67,7 @@ public class ComponentGraphView : GraphView
             }
         };
 
-        _debuggingLabel = new Label("DEBUGING_PLACEHOLDER")
+        _debuggingLabel = new Label("DEBUGGING_PLACEHOLDER")
         {
             style =
             {
@@ -100,7 +102,7 @@ public class ComponentGraphView : GraphView
 
     private void OnSearchTextChanged(ChangeEvent<string> evt)
     {
-        string searchText = evt.newValue.ToLowerInvariant();
+        var searchText = evt.newValue.ToLowerInvariant();
         SearchNodes(searchText);
     }
 
@@ -117,7 +119,7 @@ public class ComponentGraphView : GraphView
 
         // Find and highlight matching nodes
         var matchingNodes = _nodes.Where(n =>
-            n.title.ToLowerInvariant().Contains(searchText) ||
+            ContainsText(n, searchText) ||
             IsCustomNodeMatch(n, searchText)
         );
 
@@ -127,90 +129,105 @@ public class ComponentGraphView : GraphView
         }
     }
 
-    private static bool IsCustomNodeMatch(GameObjectNode node, string searchText)
+    // TODO: change searching based on some checkboxes
+    // e.g. if search in properties also search in the names of connected components
+    private static bool ContainsText(Node node, string searchText)
     {
-        // Override this method to add custom search criteria
-        // Example: searching through custom node properties
-        if (node is GameObjectNode customNode)
-        {
-            return customNode.title.ToLowerInvariant().Contains(searchText);
-        }
-
-        return false;
+        return node.title.ToLowerInvariant().Contains(searchText);
     }
 
-    private void HighlightNode(GameObjectNode node)
+    private static bool IsCustomNodeMatch(Node node, string searchText)
+    {
+        return node != null && node.title.ToLowerInvariant().Contains(searchText);
+    }
+
+    /// <summary>
+    /// Highlight node on search hit
+    /// </summary>
+    /// <param name="node">node to be highlighted</param>
+    private void HighlightNode(Node node)
     {
         node.style.backgroundColor = _highlightColor;
-        // Optional: Add visual effects or animations here
         node.MarkDirtyRepaint();
     }
 
-    private void ResetNodeColor(GameObjectNode node)
+    // TODO: reset to actual background color
+    /// <summary>
+    /// Set node back to original background
+    /// </summary>
+    /// <param name="node"></param>
+    private void ResetNodeColor(Node node)
     {
         node.style.backgroundColor = _defaultNodeColor;
         node.MarkDirtyRepaint();
     }
 
-    public void SetShowScripts(bool showScripts)
-    {
-        _showScripts = showScripts;
-    }
-
-    public void SetComponentGraphDrawType(Constants.ComponentGraphDrawType drawType)
-    {
-        _drawType = drawType;
-    }
-
+    /// <summary>
+    /// Handle KeyDown presses - shortcut handling
+    /// </summary>
+    /// <param name="evt"></param>
     private void OnKeyDownEvent(KeyDownEvent evt)
     {
-        if (evt.ctrlKey && evt.keyCode == KeyCode.R)
+        switch (evt.ctrlKey)
         {
-            _debuggingLabel.text = "refresh graph";
-            RefreshGraph();
-            evt.StopPropagation();
-        }
-        else if (evt.ctrlKey && evt.keyCode == KeyCode.L)
-        {
-            _debuggingLabel.text = "layout nodes";
-            LayoutNodes(_drawType);
-            evt.StopPropagation();
-        }
-        else if (evt.ctrlKey && evt.keyCode == KeyCode.I)
-        {
-            int i = 0;
-            foreach (var kvp in _gameObjectGroups)
+            case true when evt.keyCode == KeyCode.R:
+                _debuggingLabel.text = "refresh graph";
+                RefreshGraph();
+                evt.StopPropagation();
+                break;
+            case true when evt.keyCode == KeyCode.L:
+                _debuggingLabel.text = "layout nodes";
+                LayoutNodes(_drawType);
+                evt.StopPropagation();
+                break;
+            case true when evt.keyCode == KeyCode.I:
             {
-                var group = kvp.Value;
-
-                if (_currentDebuggedRect < i && group.containedElements.OfType<GameObjectNode>().ToArray().Count() > 1)
+                var i = 0;
+                foreach (var group in _gameObjectGroups.Select(kvp => kvp.Value))
                 {
-                    _debuggingLabel.text = "i: " + i + " cur: " + _currentDebuggedRect + " size: " + group.containedElements.OfType<GameObjectNode>().ToList()[1].contentRect.ToString();
-                    group.selected = true;
-                    break;
+                    if (_currentDebuggedRect < i &&
+                        group.containedElements.OfType<GameObjectNode>().ToArray().Count() > 1)
+                    {
+                        _debuggingLabel.text = "i: " + i + " cur: " + _currentDebuggedRect + " size: " +
+                                               group.containedElements.OfType<GameObjectNode>().ToList()[1].contentRect
+                                                   .ToString();
+                        group.selected = true;
+                        break;
+                    }
+
+                    ++i;
                 }
 
-                ++i;
+                ++_currentDebuggedRect;
+                evt.StopPropagation();
+                break;
             }
+            case true when evt.keyCode == KeyCode.T:
+            {
+                switch (_drawType)
+                {
+                    case Constants.ComponentGraphDrawType.NodesAreComponents:
+                    {
+                        var groups = _gameObjectGroups.Values.ToArray();
+                        var layoutState = NodeUtils.OptimizeGroupLayouts(groups, padding: 15f);
+                        layoutState.ApplyLayout();
+                        break;
+                    }
+                    case Constants.ComponentGraphDrawType.NodesAreGameObjects:
+                        LayoutNodesUsingManager();
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
 
-            ++_currentDebuggedRect;
-            evt.StopPropagation();
-        }
-        else if (evt.ctrlKey && evt.keyCode == KeyCode.T)
-        {
-            if (_drawType == Constants.ComponentGraphDrawType.NodesAreComponents)
-            {
-                Group[] groups = _gameObjectGroups.Values.OfType<Group>().ToArray();
-                LayoutState layoutState = NodeUtils.OptimizeGroupLayouts(groups, padding: 15f);
-                layoutState.ApplyLayout();
-            }
-            else if (_drawType == Constants.ComponentGraphDrawType.NodesAreGameObjects)
-            {
-                LayoutGameObjectNodes();
+                break;
             }
         }
     }
 
+    /// <summary>
+    /// Destroy current nodes and recreate everything
+    /// </summary>
     public void RefreshGraph()
     {
         ClearGraph();
@@ -228,6 +245,9 @@ public class ComponentGraphView : GraphView
         EditorApplication.delayCall += PerformLayout;
     }
 
+    /// <summary>
+    /// Wrapper method for <see cref="LayoutNodes(SceneConnections.Constants.ComponentGraphDrawType)"/> that adds debug statements and visual feedback
+    /// </summary>
     private void PerformLayout()
     {
         if (!_needsLayout) return;
@@ -245,11 +265,12 @@ public class ComponentGraphView : GraphView
     }
 
     /// <summary>
-    /// creating node overview using all GameObjects
+    /// Creating node overview using all GameObjects
     /// 
     /// </summary>
     /// <param name="style">ComponentGraphDrawType deciding wheter nodes are game objects or nodes are components grouped using groups</param>
-    private void CreateGraph(Constants.ComponentGraphDrawType style = Constants.ComponentGraphDrawType.NodesAreComponents)
+    private void CreateGraph(
+        Constants.ComponentGraphDrawType style = Constants.ComponentGraphDrawType.NodesAreComponents)
     {
         var allGameObjects = Object.FindObjectsOfType<GameObject>();
 
@@ -262,7 +283,7 @@ public class ComponentGraphView : GraphView
                 {
                     CreateGameObjectGroup(gameObject);
 
-                    var components = gameObject.GetComponents<UnityEngine.Component>();
+                    var components = gameObject.GetComponents<Component>();
                     foreach (var component in components)
                     {
                         CreateComponentNode(component);
@@ -274,12 +295,13 @@ public class ComponentGraphView : GraphView
             // nodes contain attributes that correspond to attached components
             case Constants.ComponentGraphDrawType.NodesAreGameObjects:
             {
-                _nodes = new List<GameObjectNode>();
+                _nodes = new List<Node>();
                 foreach (var gameObject in allGameObjects)
                 {
-                    var components = gameObject.GetComponents<UnityEngine.Component>();
-                    _nodes.Add(CreateGameObjectNode(gameObject, components));
+                    var components = gameObject.GetComponents<Component>();
+                    _nodes.Add(CreateCompactNode(gameObject, components));
                 }
+
                 break;
             }
             default:
@@ -287,13 +309,14 @@ public class ComponentGraphView : GraphView
         }
 
         CreateEdges();
+
+        // TODO: figure out if the layout is for real not possible to perform at initialization
         LayoutNodes(style);
     }
 
     private void CreateScriptGraph()
     {
-        // query monoscripts
-        MonoScript[] scripts = AssetDatabase.FindAssets("t:MonoScript")
+        var scripts = AssetDatabase.FindAssets("t:MonoScript")
             .Select(guid => AssetDatabase.LoadAssetAtPath<MonoScript>(AssetDatabase.GUIDToAssetPath(guid)))
             .Where(script => script != null)
             .ToArray();
@@ -317,6 +340,10 @@ public class ComponentGraphView : GraphView
         }
     }
 
+    /// <summary>
+    /// Called for each MonoScript creating a new node while keeping track of nodes created in _nodes
+    /// </summary>
+    /// <param name="script"></param>
     private void CreateScriptNode(MonoScript script)
     {
         var node = new GameObjectNode()
@@ -330,6 +357,10 @@ public class ComponentGraphView : GraphView
     }
 
 
+    /// <summary>
+    /// Create Group object for passed gameObject for the cases of <b>NodesAreComponents</b>
+    /// </summary>
+    /// <param name="gameObject"></param>
     private void CreateGameObjectGroup(GameObject gameObject)
     {
         var group = new Group
@@ -341,7 +372,11 @@ public class ComponentGraphView : GraphView
         _gameObjectGroups[gameObject] = group;
     }
 
-    private void CreateComponentNode(UnityEngine.Component component)
+    /// <summary>
+    /// Create Nodes for components in the case of <b>NodesAreComponents</b> within the corresponding group
+    /// </summary>
+    /// <param name="component"></param>
+    private void CreateComponentNode(Component component)
     {
         var node = new GameObjectNode
         {
@@ -375,9 +410,15 @@ public class ComponentGraphView : GraphView
         }
     }
 
-    private GameObjectNode CreateGameObjectNode(GameObject gameObject, UnityEngine.Component[] components)
+    /// <summary>
+    /// Create a node with the name of the gameObject and all its components in cases of <b>NodesAreGameObjects</b>
+    /// </summary>
+    /// <param name="gameObject">GameObject after which the node will be named after</param>
+    /// <param name="components">All the connected components of the gameObjectNode</param>
+    /// <returns></returns>
+    private Node CreateCompactNode(GameObject gameObject, Component[] components)
     {
-        var node = new GameObjectNode
+        var node = new Node
         {
             title = gameObject.name,
         };
@@ -399,17 +440,26 @@ public class ComponentGraphView : GraphView
         return node;
     }
 
-    private void LayoutGameObjectNodes()
+    /// <summary>
+    /// Apply Layout using the LayoutManager
+    /// </summary>
+    private void LayoutNodesUsingManager()
     {
         NodeLayoutManager.LayoutNodes(_nodes);
     }
 
-    private static void AddComponentProperties(GameObjectNode node, UnityEngine.Component component)
+    /// <summary>
+    /// In case of <b>NodesAreComponents</b> call this to visualize the attributes of a component
+    /// </summary>
+    /// <param name="node">Node corresponding to the component</param>
+    /// <param name="component">Component of which the parameters should be added</param>
+    /// <param name="maximumParameters">maximal amount of Parameters that should be added to the node to avoid visual clutter</param>
+    private static void AddComponentProperties(GameObjectNode node, Component component, int maximumParameters = 5)
     {
         var properties = component.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public)
             .Where(p => p.CanRead && !p.GetIndexParameters().Any());
 
-        foreach (var property in properties.Take(1)) // Limit to 5 properties to avoid cluttering
+        foreach (var property in properties.Take(maximumParameters))
         {
             try
             {
@@ -425,6 +475,9 @@ public class ComponentGraphView : GraphView
         }
     }
 
+    /// <summary>
+    /// In case of NodesAreComponents Generate Edges between components
+    /// </summary>
     private void CreateEdges()
     {
         foreach (var (sourceComponent, sourceNode) in _componentNodes)
@@ -433,8 +486,8 @@ public class ComponentGraphView : GraphView
                 .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             foreach (var field in fields)
             {
-                if (!typeof(UnityEngine.Component).IsAssignableFrom(field.FieldType)) continue;
-                var targetComponent = field.GetValue(sourceComponent) as UnityEngine.Component;
+                if (!typeof(Component).IsAssignableFrom(field.FieldType)) continue;
+                var targetComponent = field.GetValue(sourceComponent) as Component;
                 if (targetComponent != null && _componentNodes.TryGetValue(targetComponent, out var targetNode))
                 {
                     CreateEdge(sourceNode, targetNode);
@@ -443,7 +496,12 @@ public class ComponentGraphView : GraphView
         }
     }
 
-    private void CreateEdge(GameObjectNode sourceNode, GameObjectNode targetNode)
+    /// <summary>
+    /// Helper method for <see cref="CreateEdges"/> Generating a link between <i>sourceNode</i> and <i>targetNode</i>
+    /// </summary>
+    /// <param name="sourceNode">Node that is origin of the connection</param>
+    /// <param name="targetNode">Node that is target of the connection</param>
+    private void CreateEdge(Node sourceNode, Node targetNode)
     {
         var edge = new Edge
         {
@@ -455,51 +513,63 @@ public class ComponentGraphView : GraphView
         AddElement(edge);
     }
 
-    private static Port GeneratePort(GameObjectNode node, Direction direction, Port.Capacity capacity)
+    /// <summary>
+    /// Wrapper for <see cref="Node.InstantiatePort"/>
+    /// </summary>
+    /// <param name="node">Node receiving the port</param>
+    /// <param name="direction">direction in which the port will be added</param>
+    /// <param name="capacity">amount of connections allowed per port</param>
+    /// <returns></returns>
+    private static Port GeneratePort(Node node, Direction direction, Port.Capacity capacity)
     {
-        return node.InstantiatePort(Orientation.Horizontal, direction, capacity, typeof(UnityEngine.Component));
+        return node.InstantiatePort(Orientation.Horizontal, direction, capacity, typeof(Component));
     }
 
     /// <summary>
     /// Call to organize the layout of all nodes
     /// </summary>
-    private void LayoutNodes(Constants.ComponentGraphDrawType style)
+    private void LayoutNodes(Constants.ComponentGraphDrawType represenation)
     {
-        if (style == Constants.ComponentGraphDrawType.NodesAreComponents)
+        switch (represenation)
         {
-            float x = 0;
-            float y = 0;
-            float maxHeightInRow = 0;
-            const float groupPadding = 50;
-            const float maxWidth = 5000;
-
-            foreach (var kvp in _gameObjectGroups)
+            case Constants.ComponentGraphDrawType.NodesAreComponents:
             {
-                var group = kvp.Value;
-                LayoutNodesInGroup(group);
-                group.UpdateGeometryFromContent();
+                float x = 0;
+                float y = 0;
+                float maxHeightInRow = 0;
+                const float groupPadding = 50;
+                const float maxWidth = 5000;
 
-                // Check if the group exceeds the row width
-                if (x + group.contentRect.width > maxWidth)
+                foreach (var group in _gameObjectGroups.Select(kvp => kvp.Value))
                 {
-                    x = 0;
-                    y += maxHeightInRow + groupPadding;
-                    maxHeightInRow = 0;
+                    LayoutNodesInGroup(group);
+                    group.UpdateGeometryFromContent();
+
+                    // Check if the group exceeds the row width
+                    if (x + group.contentRect.width > maxWidth)
+                    {
+                        x = 0;
+                        y += maxHeightInRow + groupPadding;
+                        maxHeightInRow = 0;
+                    }
+
+                    group.SetPosition(new Rect(x, y, group.contentRect.width, group.contentRect.height));
+
+                    x += group.contentRect.width + groupPadding;
+                    maxHeightInRow = Mathf.Max(maxHeightInRow, group.contentRect.height);
                 }
 
-                group.SetPosition(new Rect(x, y, group.contentRect.width, group.contentRect.height));
-
-                x += group.contentRect.width + groupPadding;
-                maxHeightInRow = Mathf.Max(maxHeightInRow, group.contentRect.height);
+                break;
             }
-        }
-        else if (style == Constants.ComponentGraphDrawType.NodesAreGameObjects)
-        {
+            case Constants.ComponentGraphDrawType.NodesAreGameObjects:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(represenation), represenation, null);
         }
     }
 
     /// <summary>
-    /// used to move nodes within a group
+    /// In case of <b>NodesAreComponents</b> layout nodes within a group
     /// </summary>
     /// <param name="group">a group can contain nodes</param>
     private static void LayoutNodesInGroup(Group group)
@@ -549,7 +619,9 @@ public class ComponentGraphView : GraphView
         ));
     }
 
-    // Add this helper method to force a layout refresh
+    /// <summary>
+    /// Idiotic way of trying to access contentRect if not available at initialization
+    /// </summary>
     public void ForceLayoutRefresh()
     {
         if (_showScripts)
@@ -575,15 +647,24 @@ public class ComponentGraphView : GraphView
         }
     }
 
-
+    /// <summary>
+    /// Define minimap for current graphView to be added
+    /// </summary>
     private void AddMiniMap()
     {
         var minimap = new NavigableMinimap(this);
         minimap.SetPosition(new Rect(15, 50, 200, 100));
+        minimap.anchored = true;
         Add(minimap);
     }
-}
 
-internal class ComponentGraphDrawType
-{
+    public void SetShowScripts(bool showScripts)
+    {
+        _showScripts = showScripts;
+    }
+
+    public void SetComponentGraphDrawType(Constants.ComponentGraphDrawType drawType)
+    {
+        _drawType = drawType;
+    }
 }

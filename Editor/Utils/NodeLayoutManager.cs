@@ -1,6 +1,6 @@
-using UnityEngine;
-using UnityEditor.Experimental.GraphView;
 using System.Collections.Generic;
+using UnityEditor.Experimental.GraphView;
+using UnityEngine;
 
 public abstract class NodeLayoutManager
 {
@@ -9,16 +9,16 @@ public abstract class NodeLayoutManager
     private const float HorizontalSpacing = 50.0f;
     private const float VerticalSpacing = 50.0f;
 
-    public static void LayoutNodes(List<GameObjectNode> nodes)
+    public static void LayoutNodes(List<Node> nodes)
     {
         if (nodes == null || nodes.Count == 0)
             return;
 
         // Calculate grid dimensions based on the number of nodes
-        int gridSize = Mathf.CeilToInt(Mathf.Sqrt(nodes.Count));
+        var gridSize = Mathf.CeilToInt(Mathf.Sqrt(nodes.Count));
 
         // Starting position (top-left of the layout area)
-        Vector2 startPosition = new Vector2(100.0f, 100.0f);
+        var startPosition = new Vector2(100.0f, 100.0f);
 
         // Position each node in a grid
         for (var i = 0; i < nodes.Count; i++)
@@ -26,8 +26,8 @@ public abstract class NodeLayoutManager
             var row = i / gridSize;
             var col = i % gridSize;
 
-            Vector2 nodeSize = GetNodeSize(nodes[i]);
-            Vector2 position = new Vector2(
+            var nodeSize = GetNodeSize(nodes[i]);
+            var position = new Vector2(
                 startPosition.x + col * (nodeSize.x + HorizontalSpacing),
                 startPosition.y + row * (nodeSize.y + VerticalSpacing)
             );
@@ -36,7 +36,7 @@ public abstract class NodeLayoutManager
         }
     }
 
-    private static Vector2 GetNodeSize(GameObjectNode node)
+    private static Vector2 GetNodeSize(Node node)
     {
         // Try to get actual node size, fallback to defaults if not available
         var currentRect = node.GetPosition();
@@ -46,7 +46,7 @@ public abstract class NodeLayoutManager
         return new Vector2(width, height);
     }
 
-    private static void SetNodePosition(GameObjectNode node, Vector2 position)
+    private static void SetNodePosition(Node node, Vector2 position)
     {
         var size = GetNodeSize(node);
         var newRect = new Rect(position, size);
