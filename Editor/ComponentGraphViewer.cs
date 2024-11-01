@@ -1,64 +1,64 @@
-using UnityEngine;
 using UnityEditor;
+using UnityEngine;
 using UnityEngine.UIElements;
-using SceneConnections;
-using SceneConnections.Editor;
 
-
-public class ComponentGraphViewer : EditorWindow
+namespace SceneConnections.Editor
 {
-    private ComponentGraphView _graphView;
-    private bool _isRefreshing;
-
-    public bool showScripts;
-
-    [MenuItem("Window/Connections v2 #&2")]
-    public static void OpenWindow()
+    public class ComponentGraphViewer : UnityEditor.EditorWindow
     {
-        var window = GetWindow<ComponentGraphViewer>();
-        window.titleContent = new GUIContent("Enhanced Component Graph");
-        window.minSize = new Vector2(800, 600);
-    }
+        private ComponentGraphView _graphView;
+        private bool _isRefreshing;
 
-    private void OnEnable()
-    {
-        _graphView = new ComponentGraphView();
-        rootVisualElement.Add(_graphView);
+        public bool showScripts;
 
-        var showGraphToggle = new Toggle("Show Scripts") { value = false };
-        var setComponentGraphDrawType = new DropdownField("Set Component Graph Draw Type")
+        [MenuItem("Window/Connections v2 #&2")]
+        public static void OpenWindow()
         {
-            choices = { "nodes are components", "nodes are game objects" },
-            value = "nodes are game objects"
-        };
+            var window = GetWindow<ComponentGraphViewer>();
+            window.titleContent = new GUIContent("Enhanced Component Graph");
+            window.minSize = new Vector2(800, 600);
+        }
 
-        showGraphToggle.RegisterValueChangedCallback(evt => { _graphView.SetShowScripts(evt.newValue); });
-        setComponentGraphDrawType.RegisterValueChangedCallback(evt => { _graphView.SetComponentGraphDrawType(Constants.ToCgdt(evt.newValue)); });
-        rootVisualElement.Add(showGraphToggle);
-        rootVisualElement.Add(setComponentGraphDrawType);
+        private void OnEnable()
+        {
+            _graphView = new ComponentGraphView();
+            rootVisualElement.Add(_graphView);
 
-        var refreshButton = new Button(() =>
+            var showGraphToggle = new Toggle("Show Scripts") { value = false };
+            var setComponentGraphDrawType = new DropdownField("Set Component Graph Draw Type")
             {
-                if (_isRefreshing) return;
-                _isRefreshing = true;
-                EditorApplication.delayCall += () =>
+                choices = { "nodes are components", "nodes are game objects" },
+                value = "nodes are game objects"
+            };
+
+            showGraphToggle.RegisterValueChangedCallback(evt => { _graphView.SetShowScripts(evt.newValue); });
+            setComponentGraphDrawType.RegisterValueChangedCallback(evt => { _graphView.SetComponentGraphDrawType(Constants.ToCgdt(evt.newValue)); });
+            rootVisualElement.Add(showGraphToggle);
+            rootVisualElement.Add(setComponentGraphDrawType);
+
+            var refreshButton = new Button(() =>
                 {
-                    _graphView.RefreshGraph();
-                    // Schedule a second layout pass after everything is initialized
+                    if (_isRefreshing) return;
+                    _isRefreshing = true;
                     EditorApplication.delayCall += () =>
                     {
-                        _graphView.ForceLayoutRefresh();
-                        _isRefreshing = false;
+                        _graphView.RefreshGraph();
+                        // Schedule a second layout pass after everything is initialized
+                        EditorApplication.delayCall += () =>
+                        {
+                            _graphView.ForceLayoutRefresh();
+                            _isRefreshing = false;
+                        };
                     };
-                };
-            })
-            { text = "Refresh Graph" };
-        rootVisualElement.Add(refreshButton);
-    }
+                })
+                { text = "Refresh Graph" };
+            rootVisualElement.Add(refreshButton);
+        }
 
 
-    private void OnDisable()
-    {
-        rootVisualElement.Remove(_graphView);
+        private void OnDisable()
+        {
+            rootVisualElement.Remove(_graphView);
+        }
     }
 }
