@@ -265,7 +265,6 @@ namespace SceneConnections.Editor
 
         /// <summary>
         /// Creating node overview using all GameObjects
-        /// 
         /// </summary>
         /// <param name="representation">ComponentGraphDrawType deciding wheter nodes are game objects or nodes are components grouped using groups</param>
         private void CreateGraph(
@@ -345,7 +344,7 @@ namespace SceneConnections.Editor
         /// <param name="script"></param>
         private void CreateScriptNode(MonoScript script)
         {
-            var node = new GameObjectNode
+            var node = new Node
             {
                 title = script.GetType().Name,
                 userData = script
@@ -377,7 +376,7 @@ namespace SceneConnections.Editor
         /// <param name="component"></param>
         private void CreateComponentNode(Component component)
         {
-            var node = new GameObjectNode
+            var node = new Node
             {
                 title = component.GetType().Name,
                 userData = component
@@ -453,7 +452,7 @@ namespace SceneConnections.Editor
         /// <param name="node">Node corresponding to the component</param>
         /// <param name="component">Component of which the parameters should be added</param>
         /// <param name="maximumParameters">maximal amount of Parameters that should be added to the node to avoid visual clutter</param>
-        private static void AddComponentProperties(GameObjectNode node, Component component, int maximumParameters = 5)
+        private static void AddComponentProperties(Node node, Component component, int maximumParameters = 5)
         {
             var properties = component.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Where(p => p.CanRead && !p.GetIndexParameters().Any());
