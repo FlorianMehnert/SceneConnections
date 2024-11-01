@@ -37,8 +37,6 @@ namespace SceneConnections.Editor
 
         private TextField _searchField;
 
-        private bool _showScripts;
-
 
         public ComponentGraphView()
         {
@@ -230,14 +228,7 @@ namespace SceneConnections.Editor
         public void RefreshGraph()
         {
             ClearGraph();
-            if (_showScripts)
-            {
-                CreateScriptGraph();
-            }
-            else
-            {
-                CreateGraph(_drawType);
-            }
+            CreateGraph(_drawType);
 
             _loadingLabel.style.display = DisplayStyle.Flex;
             _needsLayout = true;
@@ -617,21 +608,6 @@ namespace SceneConnections.Editor
             ));
         }
 
-        /// <summary>
-        /// Idiotic way of trying to access contentRect if not available at initialization
-        /// </summary>
-        public void ForceLayoutRefresh()
-        {
-            if (_showScripts)
-            {
-                EditorApplication.delayCall += () =>
-                {
-                    LayoutNodes(_drawType);
-                    // Force the graph view to update
-                    UpdateViewTransform(viewTransform.position, viewTransform.scale);
-                };
-            }
-        }
 
         /// <summary>
         /// Define minimap for current graphView to be added
@@ -644,10 +620,6 @@ namespace SceneConnections.Editor
             Add(minimap);
         }
 
-        public void SetShowScripts(bool showScripts)
-        {
-            _showScripts = showScripts;
-        }
 
         public void SetComponentGraphDrawType(Constants.ComponentGraphDrawType drawType)
         {
