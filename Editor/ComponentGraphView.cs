@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using SceneConnections.Editor.Utils;
 using SceneConnections.Editor.Utils.ScriptVisualization;
 using SceneConnections.EditorWindow;
@@ -319,41 +319,45 @@ namespace SceneConnections.Editor
 
                     Debug.Log(Time.time + "1: start script path scraping and create nodes");
                     var scriptPaths = ScriptFinder.GetAllScriptPaths();
-                    foreach (var scriptPath in scriptPaths)
+                    var allReferences = ClassParser.GetAllClassReferencesParallel(scriptPaths);
+                    
+                    foreach (var (scriptName, _) in allReferences)
                     {
-                        var scriptName = Path.GetFileNameWithoutExtension(scriptPath);
                         var node = new Node { title = scriptName };
                         _scripts[scriptName] = node;
                         _nodes.Add(node);
                         AddElement(node);
                     }
-
-                    Debug.Log(Time.time + "2: get class references and create edges");
-
-                    // Add references as edges
-                    foreach (var scriptPath in scriptPaths)
+                    
+                    Parallel.ForEach(allReferences, reference =>
                     {
-                        var scriptName = Path.GetFileNameWithoutExtension(scriptPath);
-                        var references = ClassParser.GetClassReferences(scriptPath);
+                        var sourceScriptName = reference.Key;
+                        if (!_scripts.TryGetValue(sourceScriptName, out var sourceNode)) return;
 
-                        foreach (var reference in references)
+                        foreach (var referencedScript in reference.Value)
                         {
-                            if (!_scripts.TryGetValue(reference, out var target))
-                            {
-                                Debug.LogWarning($"Could not find target script: {reference}");
-                                continue;
-                            }
-                            if (!_scripts.TryGetValue(scriptName, out var source))
-                            {
-                                Debug.LogWarning($"Could not find source script: {scriptName}");
-                                continue;
-                            }
-    
-                            Debug.Log($"Creating edge from {scriptName} to {reference}");
-                            CreateEdge(source, target);
-                        }
-                    }
+                            // Get just the class name from potentially fully qualified name
+                            var className = referencedScript.Contains(".")
+                                ? referencedScript[(referencedScript.LastIndexOf(".", StringComparison.Ordinal) + 1)..]
+                                : referencedScript;
 
+                            if (_scripts.TryGetValue(className, out var targetNode))
+                            {
+                                // Use dispatcher to create edge on main thread since Unity UI must be modified on main thread
+                                EditorApplication.delayCall += () =>
+                                {
+                                    CreateEdge(sourceNode, targetNode);
+                                    Debug.Log($"Created edge from {sourceScriptName} to {className}");
+                                };
+                            }
+                        }
+                    });
+                    
+                    EditorApplication.delayCall += () =>
+                    {
+                        Debug.Log("Updating layout...");
+                        UpdateLayout();
+                    };
                     Debug.Log(Time.time + "3: finished get class references and create edges");
 
 
@@ -367,6 +371,18 @@ namespace SceneConnections.Editor
 
             // TODO: figure out if the layout is for real not possible to perform at initialization
             LayoutNodes(representation);
+        }
+        
+        private void UpdateLayout()
+        {
+            // Your existing layout update code here
+            // For example:
+            LayoutNodesUsingManager();
+            foreach (var node in nodes)
+            {
+                node.RefreshExpandedState();
+                node.RefreshPorts();
+            }
         }
 
 
@@ -516,17 +532,19 @@ namespace SceneConnections.Editor
         /// <param name="targetNode">Node that is target of the connection</param>
         private void CreateEdge(Node sourceNode, Node targetNode)
         {
-            // Create new ports for this specific connection
-            var outputPort = sourceNode.InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(MonoScript));
-            var inputPort = targetNode.InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(MonoScript));
+            if (sourceNode == targetNode) return; // Prevent self-referencing edges
     
-            sourceNode.outputContainer.Add(outputPort);
-            targetNode.inputContainer.Add(inputPort);
-    
-            sourceNode.RefreshPorts();
-            sourceNode.RefreshExpandedState();
-            targetNode.RefreshPorts();
-            targetNode.RefreshExpandedState();
+            // Check if edge already exists
+            if (edges.Any(e => 
+                    (e.output.node == sourceNode && e.input.node == targetNode) ||
+                    (e.input.node == sourceNode && e.output.node == targetNode)))
+            {
+                return;
+            }
+
+            // Create ports if needed
+            var outputPort = EnsurePort(sourceNode, Direction.Output);
+            var inputPort = EnsurePort(targetNode, Direction.Input);
 
             var edge = new Edge
             {
@@ -534,9 +552,25 @@ namespace SceneConnections.Editor
                 input = inputPort
             };
 
-            AddElement(edge);
             edge.input.Connect(edge);
             edge.output.Connect(edge);
+            AddElement(edge);
+        }
+        
+        private static Port EnsurePort(Node node, Direction direction)
+        {
+            var container = direction == Direction.Output ? node.outputContainer : node.inputContainer;
+    
+            if (container.childCount == 0)
+            {
+                var port = node.InstantiatePort(Orientation.Horizontal, direction, Port.Capacity.Multi, typeof(MonoScript));
+                container.Add(port);
+                node.RefreshPorts();
+                node.RefreshExpandedState();
+                return port;
+            }
+    
+            return container[0] as Port;
         }
 
         /// <summary>

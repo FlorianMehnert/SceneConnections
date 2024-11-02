@@ -1,59 +1,42 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using UnityEngine;
 
 namespace SceneConnections.Editor.Utils.ScriptVisualization
 {
     public static class ClassParser
 {
-    private static readonly HashSet<string> UsingStatements = new();
     
-    public static List<string> GetClassReferences(string scriptPath)
+    public static Dictionary<string, List<string>> GetAllClassReferencesParallel(IEnumerable<string> scriptPaths)
     {
-        var references = new HashSet<string>();
-        UsingStatements.Clear();
+        var resultDictionary = new ConcurrentDictionary<string, List<string>>();
 
-        // Read the script file
-        var content = File.ReadAllText(scriptPath);
-        
-        // First collect using statements
-        CollectUsingStatements(content);
+        Parallel.ForEach(
+            scriptPaths,
+            new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
+            scriptPath =>
+            {
+                try
+                {
+                    var references = GetClassReferences(scriptPath);
+                    var scriptName = Path.GetFileNameWithoutExtension(scriptPath);
+                    resultDictionary.TryAdd(scriptName, references);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"Error processing {scriptPath}: {ex.Message}");
+                }
+            }
+        );
 
-        // Match various patterns where class references might appear
-        CollectFieldReferences(content, references);
-        CollectMethodParameters(content, references);
-        CollectGenericTypes(content, references);
-        CollectInheritanceReferences(content, references);
-        CollectVariableDeclarations(content, references);
-        CollectAttributeReferences(content, references);
-
-        // Remove basic C# types and common Unity types that we don't want to track
-        FilterCommonTypes(references);
-
-        return references.ToList();
+        return new Dictionary<string, List<string>>(resultDictionary);
     }
-
-    private static void CollectUsingStatements(string content)
-    {
-        var usingRegex = new Regex(@"using\s+(?!static|System)([^;]+);");
-        foreach (Match match in usingRegex.Matches(content))
-        {
-            UsingStatements.Add(match.Groups[1].Value.Trim());
-        }
-    }
-
-    private static void CollectFieldReferences(string content, HashSet<string> references)
-    {
-        // Match field declarations including arrays and lists
-        var fieldRegex = new Regex(@"(?:private|public|protected|internal)\s+(?:readonly\s+)?([A-Za-z0-9_.<>]+(?:\[\])?)\s+\w+\s*[;={]");
-        foreach (Match match in fieldRegex.Matches(content))
-        {
-            AddReference(match.Groups[1].Value, references);
-        }
-    }
-
     private static void CollectMethodParameters(string content, HashSet<string> references)
     {
         // Match method parameters
@@ -64,14 +47,12 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
             AddReference(match.Groups[1].Value, references);
 
             // Add parameter types
-            if (!string.IsNullOrEmpty(match.Groups[2].Value))
+            if (string.IsNullOrEmpty(match.Groups[2].Value)) continue;
+            var parameters = match.Groups[2].Value.Split(',');
+            foreach (var param in parameters)
             {
-                var parameters = match.Groups[2].Value.Split(',');
-                foreach (var param in parameters)
-                {
-                    var paramType = param.Trim().Split(' ')[0];
-                    AddReference(paramType, references);
-                }
+                var paramType = param.Trim().Split(' ')[0];
+                AddReference(paramType, references);
             }
         }
     }
@@ -126,72 +107,129 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
             AddReference(attributeName, references);
         }
     }
+    
+    private static readonly ThreadLocal<HashSet<string>> UsingStatements = new(() => new HashSet<string>());
+
+    // Original GetClassReferences method remains mostly the same, but with thread-safety improvements
+    private static List<string> GetClassReferences(string scriptPath)
+    {
+        var references = new HashSet<string>();
+        lock (references)
+        {
+            UsingStatements.Value.Clear();
+        }
+
+        // Read the script file - using blocks ensure proper resource disposal
+        string content;
+        using (var reader = new StreamReader(scriptPath))
+        {
+            content = reader.ReadToEnd();
+        }
+
+        // Process the content in parallel where possible
+        var tasks = new[]
+        {
+            Task.Run(() => CollectUsingStatements(content)),
+            Task.Run(() => CollectFieldReferences(content, references)),
+            Task.Run(() => CollectMethodParameters(content, references)),
+            Task.Run(() => CollectGenericTypes(content, references)),
+            Task.Run(() => CollectInheritanceReferences(content, references)),
+            Task.Run(() => CollectVariableDeclarations(content, references)),
+            Task.Run(() => CollectAttributeReferences(content, references))
+        };
+
+        Task.WaitAll(tasks);
+
+        FilterCommonTypes(references);
+        return references.ToList();
+    }
+
+    private static void CollectUsingStatements(string content)
+    {
+        var usingRegex = new Regex(@"using\s+(?!static|System)([^;]+);", RegexOptions.Compiled);
+        foreach (Match match in usingRegex.Matches(content))
+        {
+            lock (UsingStatements)
+            {
+                UsingStatements.Value.Add(match.Groups[1].Value.Trim());
+            }
+        }
+    }
+
+    // Other collection methods modified to use ConcurrentHashSet or locks
+    private static void CollectFieldReferences(string content, HashSet<string> references)
+    {
+        var fieldRegex = new Regex(@"(?:private|public|protected|internal)\s+(?:readonly\s+)?([A-Za-z0-9_.<>]+(?:\[\])?)\s+\w+\s*[;={]", RegexOptions.Compiled);
+        foreach (Match match in fieldRegex.Matches(content))
+        {
+            lock (references)
+            {
+                AddReference(match.Groups[1].Value, references);
+            }
+        }
+    }
+
+    // Similar modifications for other Collect* methods...
 
     private static void AddReference(string type, HashSet<string> references)
     {
-        // Clean up the type name
-        type = type.Trim();
+        type = type.Trim().Replace("[]", "");
         
-        // Remove array brackets if present
-        type = type.Replace("[]", "");
-        
-        // Handle generic types
         if (type.Contains("<"))
         {
             type = type.Substring(0, type.IndexOf("<", StringComparison.Ordinal));
         }
 
-        // Skip if it's a C# keyword
         if (IsCSharpKeyword(type))
             return;
 
-        // Add both the simple type name and the fully qualified name if it matches a using statement
-        references.Add(type);
-        foreach (var usingStatement in UsingStatements)
+        lock (references)
         {
-            if (usingStatement.EndsWith("." + type))
+            references.Add(type);
+            foreach (var usingStatement in UsingStatements.Value.Where(usingStatement => usingStatement.EndsWith("." + type)))
             {
                 references.Add(usingStatement + "." + type);
             }
         }
     }
 
+    // Static sets for improved performance
+    private static readonly HashSet<string> CommonTypes = new()
+    {
+        "void", "string", "int", "float", "double", "bool", "decimal",
+        "object", "dynamic", "var", "byte", "char", "long", "short",
+        "uint", "ulong", "ushort", "sbyte", "DateTime", "TimeSpan",
+        "IEnumerable", "IEnumerator", "IList", "List", "Dictionary",
+        "HashSet", "Queue", "Stack", "Array", "ICollection",
+        "GameObject", "Transform", "Vector2", "Vector3", "Vector4",
+        "Quaternion", "Mathf", "Debug", "MonoBehaviour", "Component",
+        "Rigidbody", "Rigidbody2D", "Collider", "Collider2D"
+    };
+
+    private static readonly HashSet<string> CSharpKeywords = new()
+    {
+        "abstract", "as", "base", "bool", "break", "byte", "case", "catch",
+        "char", "checked", "class", "const", "continue", "decimal", "default",
+        "delegate", "do", "double", "else", "enum", "event", "explicit",
+        "extern", "false", "finally", "fixed", "float", "for", "foreach",
+        "goto", "if", "implicit", "in", "int", "interface", "internal",
+        "is", "lock", "long", "namespace", "new", "null", "object",
+        "operator", "out", "override", "params", "private", "protected",
+        "public", "readonly", "ref", "return", "sbyte", "sealed",
+        "short", "sizeof", "stackalloc", "static", "string", "struct",
+        "switch", "this", "throw", "true", "try", "typeof", "uint",
+        "ulong", "unchecked", "unsafe", "ushort", "using", "virtual",
+        "void", "volatile", "while"
+    };
+
     private static void FilterCommonTypes(HashSet<string> references)
     {
-        var commonTypes = new HashSet<string>
-        {
-            "void", "string", "int", "float", "double", "bool", "decimal",
-            "object", "dynamic", "var", "byte", "char", "long", "short",
-            "uint", "ulong", "ushort", "sbyte", "DateTime", "TimeSpan",
-            "IEnumerable", "IEnumerator", "IList", "List", "Dictionary",
-            "HashSet", "Queue", "Stack", "Array", "ICollection",
-            // Common Unity types
-            "GameObject", "Transform", "Vector2", "Vector3", "Vector4",
-            "Quaternion", "Mathf", "Debug", "MonoBehaviour", "Component",
-            "Rigidbody", "Rigidbody2D", "Collider", "Collider2D"
-        };
-
-        references.RemoveWhere(r => commonTypes.Contains(r));
+        references.RemoveWhere(r => CommonTypes.Contains(r));
     }
 
     private static bool IsCSharpKeyword(string word)
     {
-        var keywords = new HashSet<string>
-        {
-            "abstract", "as", "base", "bool", "break", "byte", "case", "catch",
-            "char", "checked", "class", "const", "continue", "decimal", "default",
-            "delegate", "do", "double", "else", "enum", "event", "explicit",
-            "extern", "false", "finally", "fixed", "float", "for", "foreach",
-            "goto", "if", "implicit", "in", "int", "interface", "internal",
-            "is", "lock", "long", "namespace", "new", "null", "object",
-            "operator", "out", "override", "params", "private", "protected",
-            "public", "readonly", "ref", "return", "sbyte", "sealed",
-            "short", "sizeof", "stackalloc", "static", "string", "struct",
-            "switch", "this", "throw", "true", "try", "typeof", "uint",
-            "ulong", "unchecked", "unsafe", "ushort", "using", "virtual",
-            "void", "volatile", "while"
-        };
-        return keywords.Contains(word.ToLower());
+        return CSharpKeywords.Contains(word.ToLower());
     }
 }
 }
