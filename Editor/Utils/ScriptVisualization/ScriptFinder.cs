@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 
 namespace SceneConnections.Editor.Utils.ScriptVisualization
@@ -8,16 +9,9 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
         public static List<string> GetAllScriptPaths()
         {
             // Fetch all assets with the `.cs` extension in the project
-            string[] guids = AssetDatabase.FindAssets("t:Script");
-            var scriptPaths = new List<string>();
+            var guids = AssetDatabase.FindAssets("t:Script");
 
-            foreach (string guid in guids)
-            {
-                string path = AssetDatabase.GUIDToAssetPath(guid);
-                scriptPaths.Add(path);
-            }
-
-            return scriptPaths;
+            return guids.Select(AssetDatabase.GUIDToAssetPath).ToList();
         }
     }
 }
