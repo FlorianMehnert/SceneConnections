@@ -86,6 +86,17 @@ namespace SceneConnections.Editor
 
             // Create and configure search bar
             CreateSearchBar();
+            
+            // graphViewChanged = changes =>
+            // {
+            //     if (changes.edgesToCreate == null) return changes;
+            //     foreach (var edge in changes.edgesToCreate)
+            //     {
+            //         edge.input.Connect(edge);
+            //         edge.output.Connect(edge);
+            //     }
+            //     return changes;
+            // };
         }
 
         private void CreateSearchBar()
@@ -327,11 +338,19 @@ namespace SceneConnections.Editor
 
                         foreach (var reference in references)
                         {
-                            if (!_scripts.TryGetValue(reference, out var target)) continue;
-                            _scripts.TryGetValue(scriptName, out var source);
-                            if (source == null || target == null) continue;
+                            if (!_scripts.TryGetValue(reference, out var target))
+                            {
+                                Debug.LogWarning($"Could not find target script: {reference}");
+                                continue;
+                            }
+                            if (!_scripts.TryGetValue(scriptName, out var source))
+                            {
+                                Debug.LogWarning($"Could not find source script: {scriptName}");
+                                continue;
+                            }
+    
+                            Debug.Log($"Creating edge from {scriptName} to {reference}");
                             CreateEdge(source, target);
-                            _debuggingLabel.text = "2b: after edge";
                         }
                     }
 
@@ -497,38 +516,27 @@ namespace SceneConnections.Editor
         /// <param name="targetNode">Node that is target of the connection</param>
         private void CreateEdge(Node sourceNode, Node targetNode)
         {
-            if (sourceNode.outputContainer.childCount == 0)
-            {
-                var port = sourceNode.InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(MonoScript));
-                sourceNode.Add(port);
-            }
-
-            if (targetNode.inputContainer.childCount == 0)
-            {
-                var port = targetNode.InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(MonoScript));
-                targetNode.Add(port);
-            }
-            
+            // Create new ports for this specific connection
+            var outputPort = sourceNode.InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(MonoScript));
+            var inputPort = targetNode.InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(MonoScript));
+    
+            sourceNode.outputContainer.Add(outputPort);
+            targetNode.inputContainer.Add(inputPort);
+    
             sourceNode.RefreshPorts();
             sourceNode.RefreshExpandedState();
             targetNode.RefreshPorts();
             targetNode.RefreshExpandedState();
 
-            var outputPort = sourceNode.outputContainer.childCount > 0 ? sourceNode.outputContainer[0] as Port : null;
-            var inputPort = targetNode.inputContainer.childCount > 0 ? targetNode.inputContainer[0] as Port : null;
-
-            if (outputPort != null && inputPort != null)
+            var edge = new Edge
             {
-                var edge = new Edge
-                {
-                    output = sourceNode.outputContainer[0] as Port,
-                    input = targetNode.inputContainer[0] as Port
-                };
+                output = outputPort,
+                input = inputPort
+            };
 
-                edge.input.Connect(edge);
-                edge.output.Connect(edge);
-                AddElement(edge);    
-            }
+            AddElement(edge);
+            edge.input.Connect(edge);
+            edge.output.Connect(edge);
         }
 
         /// <summary>
