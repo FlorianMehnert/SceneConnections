@@ -36,8 +36,7 @@ namespace SceneConnections.Editor
         private bool _needsLayout;
 
         private List<Node> _nodes;
-        private Dictionary<string, Node> _scripts = new Dictionary<string, Node>();
-
+        private readonly Dictionary<string, Node> _scripts = new();
         private TextField _searchField;
 
 
@@ -306,7 +305,9 @@ namespace SceneConnections.Editor
                     // 3. add node for each script with references
                     // 4. update layout
                     // 5. group if needed
-                    List<string> scriptPaths = ScriptFinder.GetAllScriptPaths();
+
+                    Debug.Log(Time.time + "1: start script path scraping and create nodes");
+                    var scriptPaths = ScriptFinder.GetAllScriptPaths();
                     foreach (var scriptPath in scriptPaths)
                     {
                         var scriptName = Path.GetFileNameWithoutExtension(scriptPath);
@@ -316,21 +317,27 @@ namespace SceneConnections.Editor
                         AddElement(node);
                     }
 
+                    Debug.Log(Time.time + "2: get class references and create edges");
+
                     // Add references as edges
                     foreach (var scriptPath in scriptPaths)
                     {
-                        string scriptName = Path.GetFileNameWithoutExtension(scriptPath);
-                        List<string> references = ClassParser.GetClassReferences(scriptPath);
+                        var scriptName = Path.GetFileNameWithoutExtension(scriptPath);
+                        var references = ClassParser.GetClassReferences(scriptPath);
 
                         foreach (var reference in references)
                         {
-                            if (_scripts.ContainsKey(reference))
-                            {
-                                CreateEdge(_scripts[scriptName], _scripts[reference]);
-                            }
+                            if (!_scripts.TryGetValue(reference, out var target)) continue;
+                            _scripts.TryGetValue(scriptName, out var source);
+                            if (source == null || target == null) continue;
+                            CreateEdge(source, target);
+                            _debuggingLabel.text = "2b: after edge";
                         }
                     }
-                    
+
+                    Debug.Log(Time.time + "3: finished get class references and create edges");
+
+
                     break;
                 }
                 default:
@@ -490,14 +497,38 @@ namespace SceneConnections.Editor
         /// <param name="targetNode">Node that is target of the connection</param>
         private void CreateEdge(Node sourceNode, Node targetNode)
         {
-            var edge = new Edge
+            if (sourceNode.outputContainer.childCount == 0)
             {
-                output = sourceNode.outputContainer[0] as Port,
-                input = targetNode.inputContainer[0] as Port
-            };
-            edge.input?.Connect(edge);
-            edge.output?.Connect(edge);
-            AddElement(edge);
+                var port = sourceNode.InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(MonoScript));
+                sourceNode.Add(port);
+            }
+
+            if (targetNode.inputContainer.childCount == 0)
+            {
+                var port = targetNode.InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(MonoScript));
+                targetNode.Add(port);
+            }
+            
+            sourceNode.RefreshPorts();
+            sourceNode.RefreshExpandedState();
+            targetNode.RefreshPorts();
+            targetNode.RefreshExpandedState();
+
+            var outputPort = sourceNode.outputContainer.childCount > 0 ? sourceNode.outputContainer[0] as Port : null;
+            var inputPort = targetNode.inputContainer.childCount > 0 ? targetNode.inputContainer[0] as Port : null;
+
+            if (outputPort != null && inputPort != null)
+            {
+                var edge = new Edge
+                {
+                    output = sourceNode.outputContainer[0] as Port,
+                    input = targetNode.inputContainer[0] as Port
+                };
+
+                edge.input.Connect(edge);
+                edge.output.Connect(edge);
+                AddElement(edge);    
+            }
         }
 
         /// <summary>
@@ -515,9 +546,9 @@ namespace SceneConnections.Editor
         /// <summary>
         /// Call to organize the layout of all nodes
         /// </summary>
-        private void LayoutNodes(Constants.ComponentGraphDrawType represenation)
+        private void LayoutNodes(Constants.ComponentGraphDrawType representation)
         {
-            switch (represenation)
+            switch (representation)
             {
                 case Constants.ComponentGraphDrawType.NodesAreComponents:
                 {
@@ -550,8 +581,10 @@ namespace SceneConnections.Editor
                 }
                 case Constants.ComponentGraphDrawType.NodesAreGameObjects:
                     break;
+                case Constants.ComponentGraphDrawType.NodesAreScripts:
+                    break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(represenation), represenation, null);
+                    throw new ArgumentOutOfRangeException(nameof(representation), representation, null);
             }
         }
 
