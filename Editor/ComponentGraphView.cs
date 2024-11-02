@@ -86,17 +86,6 @@ namespace SceneConnections.Editor
 
             // Create and configure search bar
             CreateSearchBar();
-            
-            // graphViewChanged = changes =>
-            // {
-            //     if (changes.edgesToCreate == null) return changes;
-            //     foreach (var edge in changes.edgesToCreate)
-            //     {
-            //         edge.input.Connect(edge);
-            //         edge.output.Connect(edge);
-            //     }
-            //     return changes;
-            // };
         }
 
         private void CreateSearchBar()
@@ -191,6 +180,11 @@ namespace SceneConnections.Editor
                     LayoutNodes(_drawType);
                     evt.StopPropagation();
                     break;
+                case true when evt.keyCode == KeyCode.C:
+                    _debuggingLabel.text = "create graph";
+                    CreateGraph();
+                    evt.StopPropagation();
+                    break;
                 case true when evt.keyCode == KeyCode.I:
                 {
                     var i = 0;
@@ -232,7 +226,7 @@ namespace SceneConnections.Editor
                         default:
                             throw new ArgumentOutOfRangeException();
                     }
-
+                    evt.StopPropagation();
                     break;
                 }
             }
