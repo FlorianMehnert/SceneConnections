@@ -218,10 +218,10 @@ namespace SceneConnections.Editor
                             break;
                         }
                         case Constants.ComponentGraphDrawType.NodesAreGameObjects:
-                            LayoutNodesUsingManager();
+                            EditorApplication.delayCall+=LayoutNodesUsingManager;
                             break;
                         case Constants.ComponentGraphDrawType.NodesAreScripts:
-                            LayoutNodesUsingManager();
+                            EditorApplication.delayCall+=LayoutNodesUsingManager;
                             break;
                         default:
                             throw new ArgumentOutOfRangeException();
@@ -371,7 +371,7 @@ namespace SceneConnections.Editor
         {
             // Your existing layout update code here
             // For example:
-            LayoutNodesUsingManager();
+            EditorApplication.delayCall+=LayoutNodesUsingManager;
             foreach (var node in nodes)
             {
                 node.RefreshExpandedState();

@@ -10,48 +10,80 @@ namespace SceneConnections.Editor.Utils
         private const float DefaultNodeHeight = 200.0f;
         private const float HorizontalSpacing = 50.0f;
         private const float VerticalSpacing = 50.0f;
+        private const float InitialX = 100.0f;
+        private const float InitialY = 100.0f;
 
         public static void LayoutNodes(List<Node> nodes)
         {
             if (nodes == null || nodes.Count == 0)
                 return;
 
-            // Calculate grid dimensions based on the number of nodes
-            var gridSize = Mathf.CeilToInt(Mathf.Sqrt(nodes.Count));
+            // Calculate optimal grid dimensions
+            var totalNodes = nodes.Count;
+            var gridColumns = CalculateOptimalColumnCount(totalNodes);
+            var gridRows = Mathf.CeilToInt((float)totalNodes / gridColumns);
 
-            // Starting position (top-left of the layout area)
-            var startPosition = new Vector2(100.0f, 100.0f);
+            // Find maximum node dimensions to ensure consistent spacing
+            var maxNodeDimensions = GetMaxNodeDimensions(nodes);
 
-            // Position each node in a grid
+            Debug.Log($"Grid: {gridRows}x{gridColumns}, Total Nodes: {totalNodes}");
+            Debug.Log($"Max Node Dimensions: {maxNodeDimensions}");
+
+            // Position each node in the grid
             for (var i = 0; i < nodes.Count; i++)
             {
-                var row = i / gridSize;
-                var col = i % gridSize;
+                var row = i / gridColumns;
+                var col = i % gridColumns;
 
-                var nodeSize = GetNodeSize(nodes[i]);
                 var position = new Vector2(
-                    startPosition.x + col * (nodeSize.x + HorizontalSpacing),
-                    startPosition.y + row * (nodeSize.y + VerticalSpacing)
+                    InitialX + col * (maxNodeDimensions.x + HorizontalSpacing),
+                    InitialY + row * (maxNodeDimensions.y + VerticalSpacing)
                 );
 
-                SetNodePosition(nodes[i], position);
+                SetNodePosition(nodes[i], position, maxNodeDimensions);
+                
+                Debug.Log($"Node {i} positioned at {position}, Size: {maxNodeDimensions}");
             }
         }
 
-        private static Vector2 GetNodeSize(Node node)
+        private static int CalculateOptimalColumnCount(int nodeCount)
         {
-            // Try to get actual node size, fallback to defaults if not available
-            var currentRect = node.GetPosition();
-            var width = currentRect.width > 0 ? currentRect.width : DefaultNodeWidth;
-            var height = currentRect.height > 0 ? currentRect.height : DefaultNodeHeight;
-
-            return new Vector2(width, height);
+            // Aim for a golden ratio-like aspect ratio (1.618)
+            const float targetAspectRatio = 1.618f;
+            
+            // Calculate columns based on desired aspect ratio
+            var columns = Mathf.RoundToInt(Mathf.Sqrt(nodeCount * targetAspectRatio));
+            
+            // Ensure we have at least one column
+            return Mathf.Max(1, columns);
         }
 
-        private static void SetNodePosition(Node node, Vector2 position)
+        private static Vector2 GetMaxNodeDimensions(List<Node> nodes)
         {
-            var size = GetNodeSize(node);
-            var newRect = new Rect(position, size);
+            var maxWidth = DefaultNodeWidth;
+            var maxHeight = DefaultNodeHeight;
+
+            foreach (var node in nodes)
+            {
+                var currentRect = node.GetPosition();
+                
+                // Only consider non-zero dimensions
+                if (currentRect.width > 0)
+                    maxWidth = Mathf.Max(maxWidth, currentRect.width);
+                if (currentRect.height > 0)
+                    maxHeight = Mathf.Max(maxHeight, currentRect.height);
+            }
+
+            return new Vector2(maxWidth, maxHeight);
+        }
+
+        private static void SetNodePosition(Node node, Vector2 position, Vector2 standardSize)
+        {
+            var currentRect = node.GetPosition();
+            var width = currentRect.width > 0 ? currentRect.width : standardSize.x;
+            var height = currentRect.height > 0 ? currentRect.height : standardSize.y;
+            
+            var newRect = new Rect(position, new Vector2(width, height));
             node.SetPosition(newRect);
         }
     }
