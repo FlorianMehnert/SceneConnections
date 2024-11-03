@@ -2,7 +2,7 @@ using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace SceneConnections.EditorWindow
+namespace SceneConnections.Editor
 {
     public class NavigableMinimap : MiniMap
     {
@@ -37,16 +37,14 @@ namespace SceneConnections.EditorWindow
 
             RegisterCallback<MouseDownEvent>(evt =>
             {
-                if (evt.button == 0) // Left mouse button
-                {
-                    _isDragging = true;
-                    _dragStartPosition = this.WorldToLocal(evt.mousePosition);
-                    _viewStartPosition = _parentGraphView.viewTransform.position;
+                if (evt.button != 0) return; // Left mouse button
+                _isDragging = true;
+                _dragStartPosition = this.WorldToLocal(evt.mousePosition);
+                _viewStartPosition = _parentGraphView.viewTransform.position;
 
-                    // Capture the mouse to continue receiving events
-                    this.CaptureMouse();
-                    evt.StopPropagation();
-                }
+                // Capture the mouse to continue receiving events
+                this.CaptureMouse();
+                evt.StopPropagation();
             });
 
             RegisterCallback<MouseUpEvent>(evt =>
@@ -61,20 +59,18 @@ namespace SceneConnections.EditorWindow
 
             RegisterCallback<MouseMoveEvent>(evt =>
             {
-                if (_isDragging)
-                {
-                    Vector2 currentMousePos = this.WorldToLocal(evt.mousePosition);
-                    Vector2 dragDelta = currentMousePos - _dragStartPosition;
+                if (!_isDragging) return;
+                var currentMousePos = this.WorldToLocal(evt.mousePosition);
+                var dragDelta = currentMousePos - _dragStartPosition;
 
-                    // Apply scaled delta for smoother movement
-                    Vector2 scaledDelta = new(
-                        dragDelta.x * 6.0f / _scaleX,
-                        dragDelta.y * 4.0f / _scaleY
-                    );
+                // Apply scaled delta for smoother movement
+                Vector2 scaledDelta = new(
+                    dragDelta.x * 6.0f / _scaleX,
+                    dragDelta.y * 4.0f / _scaleY
+                );
 
-                    _parentGraphView.viewTransform.position = _viewStartPosition - scaledDelta;
-                    evt.StopPropagation();
-                }
+                _parentGraphView.viewTransform.position = _viewStartPosition - scaledDelta;
+                evt.StopPropagation();
             });
         }
 

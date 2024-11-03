@@ -77,9 +77,9 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
                 @"(?:readonly\s+)?" + // Optional readonly
                 @"(?:static\s+)?" + // Optional static
                 @"([A-Za-z0-9_.<>]+(?:\.[A-Za-z0-9_]+)*)" + // Type name with possible nested types
-                @"(?:<[^>]+>)?" + // Optional generic parameters
+                "(?:<[^>]+>)?" + // Optional generic parameters
                 @"\s+\w+\s*" + // Field name
-                @"(?:[;=]|{[^}]*})", // Ending with ; or = or { ... }
+                "(?:[;=]|{[^}]*})", // Ending with ; or = or { ... }
                 RegexOptions.Compiled
             );
 
@@ -89,13 +89,11 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
                 ProcessTypeReference(fullType, references);
 
                 // If there are generic parameters, extract and process them too
-                var genericParamsMatch = Regex.Match(match.Value, @"<([^>]+)>");
-                if (genericParamsMatch.Success)
+                var genericParamsMatch = Regex.Match(match.Value, "<([^>]+)>");
+                if (!genericParamsMatch.Success) continue;
+                foreach (var genericType in genericParamsMatch.Groups[1].Value.Split(','))
                 {
-                    foreach (var genericType in genericParamsMatch.Groups[1].Value.Split(','))
-                    {
-                        ProcessTypeReference(genericType.Trim(), references);
-                    }
+                    ProcessTypeReference(genericType.Trim(), references);
                 }
             }
         }
@@ -142,7 +140,7 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
         {
             "void", "string", "int", "float", "double", "bool", "decimal", "object", "dynamic", "var", "byte", "char", "long", "short", "uint", "ulong", "ushort", "sbyte", "DateTime", "TimeSpan", "IEnumerable", "IEnumerator", "IList", "List", "Dictionary", "HashSet", "Queue", "Stack", "Array",
             "ICollection", "GameObject", "Transform", "Vector2", "Vector3", "Vector4", "Quaternion", "Mathf", "Debug", "MonoBehaviour", "Component", "Rigidbody", "Rigidbody2D", "Collider", "Collider2D", "Label", "TextField", "Color", "Component", "Node", "Group", "GameObject", "Constants", "List",
-            "Dictionary",
+            "Dictionary"
         };
 
         private static readonly HashSet<string> CSharpKeywords = new()

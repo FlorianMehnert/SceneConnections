@@ -11,7 +11,7 @@ namespace SceneConnections.Editor
 
         public static void OpenWindow(System.Type componentType)
         {
-            ComponentInstanceEditor window = GetWindow<ComponentInstanceEditor>();
+            var window = GetWindow<ComponentInstanceEditor>();
             window.titleContent = new GUIContent($"Edit {componentType.Name}");
             window._componentType = componentType;
             window.Show();

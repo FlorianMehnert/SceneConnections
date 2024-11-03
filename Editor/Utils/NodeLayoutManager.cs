@@ -42,7 +42,6 @@ namespace SceneConnections.Editor.Utils
 
                 SetNodePosition(nodes[i], position, maxNodeDimensions);
                 
-                Debug.Log($"Node {i} positioned at {position}, Size: {maxNodeDimensions}");
             }
         }
 

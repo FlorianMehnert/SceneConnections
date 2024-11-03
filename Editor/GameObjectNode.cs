@@ -8,18 +8,18 @@ namespace SceneConnections.Editor
     {
         public bool HasSize;
         public Label ContentLabel;
-    
-        public GameObjectNode(bool hasSize)
+
+        private GameObjectNode(bool hasSize)
         {
             HasSize = hasSize;
             title = "Game Object Node";
 
             // Create input and output ports
-            Port inputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Single, typeof(float));
+            var inputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Single, typeof(float));
             inputPort.portName = "Input";
             inputContainer.Add(inputPort);
 
-            Port outputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(float));
+            var outputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(float));
             outputPort.portName = "Output";
             outputContainer.Add(outputPort);
 

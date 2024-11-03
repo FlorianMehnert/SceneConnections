@@ -251,6 +251,7 @@ namespace SceneConnections.Editor.Utils
                         x += colWidths[col] + padding;
                     }
                 }
+
                 y += rowHeights[row] + padding;
             }
 

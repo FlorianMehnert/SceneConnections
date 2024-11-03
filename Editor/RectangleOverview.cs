@@ -4,6 +4,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditor.ShortcutManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace SceneConnections.Editor
 {
@@ -35,7 +36,7 @@ namespace SceneConnections.Editor
         private class GroupInfo
         {
             public Rect Position;
-            public List<Component> Components = new();
+            public readonly List<Component> Components = new();
             public bool IsBuiltIn;
         }
 
@@ -66,7 +67,7 @@ namespace SceneConnections.Editor
             // Implement logic to check for relevant changes in the scene
             // For example, check if any GameObjects or Components have been added/removed/modified
             // Return true if changes are detected, false otherwise
-            return UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene().isDirty;
+            return SceneManager.GetActiveScene().isDirty;
         }
 
         private void OnGUI()
@@ -138,7 +139,7 @@ namespace SceneConnections.Editor
                 case EventType.ScrollWheel:
                     float prevZoom = _zoomLevel;
                     _zoomLevel = Mathf.Clamp(_zoomLevel - e.delta.y * 0.01f, 0.1f, 2f);
-                    if (prevZoom != _zoomLevel)
+                    if (!Mathf.Approximately(prevZoom, _zoomLevel))
                     {
                         e.Use();
                         Repaint();
@@ -233,13 +234,14 @@ namespace SceneConnections.Editor
             }
         }
 
+        // ReSharper disable Unity.PerformanceAnalysis
         private void GenerateGraph()
         {
             _nodeInfos.Clear();
             _groupInfos.Clear();
             Component[] allComponents = _includeInactiveObjects
                 ? Resources.FindObjectsOfTypeAll<Component>()
-                : FindObjectsOfType<Component>();
+                : FindObjectsByType<Component>(FindObjectsSortMode.InstanceID);
 
             // First pass: create NodeInfo for each Component and group them
             foreach (Component component in allComponents)
