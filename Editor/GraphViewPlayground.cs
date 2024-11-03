@@ -1,6 +1,3 @@
-using System;
-using System.Diagnostics;
-using System.IO;
 using SceneConnections.Editor.Utils;
 using UnityEngine.UIElements;
 
@@ -9,20 +6,6 @@ namespace SceneConnections.Editor
     using UnityEngine;
     using UnityEditor.Experimental.GraphView;
     using UnityEditor;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Threading.Tasks;
-    using Debug = UnityEngine.Debug;
-
-    public class PerformanceMetrics
-    {
-        public int BatchNumber { get; set; }
-        public int NodesInBatch { get; set; }
-        public double BatchCreationTime { get; set; }
-        public double BatchLayoutTime { get; set; }
-        public double TotalBatchTime => BatchCreationTime + BatchLayoutTime;
-        public DateTime Timestamp { get; set; }
-    }
 
     public class GraphViewPlayground : GraphView
     {

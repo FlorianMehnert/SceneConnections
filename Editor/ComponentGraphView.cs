@@ -37,6 +37,7 @@ namespace SceneConnections.Editor
         private List<Node> _nodes;
         private readonly Dictionary<string, Node> _scripts = new();
         private TextField _searchField;
+        private readonly NodeGraphBuilder _nodeGraphBuilder;
 
 
         public ComponentGraphView()
@@ -59,8 +60,8 @@ namespace SceneConnections.Editor
                 {
                     display = DisplayStyle.None,
                     position = Position.Absolute,
-                    top = 10,
-                    left = 10,
+                    top = 27,
+                    left = 900,
                     backgroundColor = new Color(.5f, 0, 0, 0.8f),
                     color = Color.white
                 }
@@ -72,8 +73,8 @@ namespace SceneConnections.Editor
                 {
                     display = DisplayStyle.Flex,
                     position = Position.Absolute,
-                    top = 10,
-                    left = 500,
+                    top = 27,
+                    left = 700,
                     backgroundColor = new Color(.2f, .8f, .8f, 0.8f),
                     color = Color.black
                 }
@@ -82,9 +83,10 @@ namespace SceneConnections.Editor
             Add(_loadingLabel);
             Add(_debuggingLabel);
             RegisterCallback<KeyDownEvent>(OnKeyDownEvent);
-
-            // Create and configure search bar
             CreateSearchBar();
+            _nodeGraphBuilder = new NodeGraphBuilder(this);
+            _nodeGraphBuilder.SetupProgressBar();
+            DrawToolbar();
         }
 
         private void CreateSearchBar()
@@ -92,11 +94,45 @@ namespace SceneConnections.Editor
             _searchField = new TextField();
             _searchField.RegisterValueChangedCallback(OnSearchTextChanged);
             _searchField.style.position = Position.Absolute;
-            _searchField.style.top = 5;
+            _searchField.style.top = 25;
             _searchField.style.left = 5;
             _searchField.style.width = 200;
             _searchField.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
             Add(_searchField);
+        }
+
+        private void DrawToolbar()
+        {
+            var toolbar = new IMGUIContainer(() =>
+            {
+                EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+
+                GUI.enabled = !_nodeGraphBuilder.GetIsProcessing();
+                EditorGUI.BeginChangeCheck();
+                _nodeGraphBuilder.AmountOfNodes = EditorGUILayout.IntSlider("Maximal Amount of Nodes", _nodeGraphBuilder.AmountOfNodes, 1, 10000);
+                _nodeGraphBuilder.BatchSize = EditorGUILayout.IntSlider("Batch Size", _nodeGraphBuilder.BatchSize, 1, _nodeGraphBuilder.AmountOfNodes);
+
+
+                if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(60)))
+                {
+                    DeleteElements(graphElements.ToList());
+                    _nodeGraphBuilder.InitGraphAsync();
+                }
+
+                if (_nodeGraphBuilder.PerformanceMetrics.Count > 0 && GUILayout.Button("Export Data", EditorStyles.toolbarButton, GUILayout.Width(80)))
+                {
+                    _nodeGraphBuilder.ExportPerformanceData();
+                }
+
+                GUI.enabled = true;
+                EditorGUILayout.EndHorizontal();
+            });
+
+            Add(toolbar);
+            toolbar.style.position = Position.Absolute;
+            toolbar.style.left = 0;
+            toolbar.style.top = 0;
+            toolbar.style.right = 0;
         }
 
         private void OnSearchTextChanged(ChangeEvent<string> evt)
@@ -181,7 +217,7 @@ namespace SceneConnections.Editor
                     break;
                 case true when evt.keyCode == KeyCode.C:
                     _debuggingLabel.text = "create graph";
-                    CreateGraph();
+                    _nodeGraphBuilder.BuildGraph();
                     evt.StopPropagation();
                     break;
                 case true when evt.keyCode == KeyCode.I:
@@ -267,7 +303,7 @@ namespace SceneConnections.Editor
         /// <summary>
         /// Creating node overview using all GameObjects
         /// </summary>
-        /// <param name="representation">ComponentGraphDrawType deciding wheter nodes are game objects or nodes are components grouped using groups</param>
+        /// <param name="representation">ComponentGraphDrawType deciding whether nodes are game objects or nodes are components grouped using groups</param>
         private void CreateGraph(
             Constants.ComponentGraphDrawType representation = Constants.ComponentGraphDrawType.NodesAreComponents)
         {
@@ -351,8 +387,6 @@ namespace SceneConnections.Editor
             }
 
             CreateEdges();
-
-            // TODO: figure out if the layout is for real not possible to perform at initialization
             LayoutNodes(representation);
         }
 

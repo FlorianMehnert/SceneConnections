@@ -41,7 +41,7 @@ namespace SceneConnections.Editor.Utils
                 if (!_showProgressBar) return;
 
                 EditorGUI.ProgressBar(
-                    new Rect(10, 30, 500, 20),
+                    new Rect(210, 27, 450, 17),
                     _progress,
                     $"Processing Nodes: {_progress * 100:F1}% ({_nodes.Count} nodes)"
                 );
