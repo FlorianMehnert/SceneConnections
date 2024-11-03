@@ -13,7 +13,7 @@ namespace SceneConnections.Editor.Utils
         private const float InitialX = 100.0f;
         private const float InitialY = 100.0f;
 
-        public static void LayoutNodes(List<Node> nodes)
+        public static void LayoutNodes(List<Node> nodes, bool silent = false)
         {
             if (nodes == null || nodes.Count == 0)
                 return;
@@ -26,8 +26,12 @@ namespace SceneConnections.Editor.Utils
             // Find maximum node dimensions to ensure consistent spacing
             var maxNodeDimensions = GetMaxNodeDimensions(nodes);
 
-            Debug.Log($"Grid: {gridRows}x{gridColumns}, Total Nodes: {totalNodes}");
-            Debug.Log($"Max Node Dimensions: {maxNodeDimensions}");
+            if (!silent)
+            {
+                Debug.Log($"Grid: {gridRows}x{gridColumns}, Total Nodes: {totalNodes}");
+                Debug.Log($"Max Node Dimensions: {maxNodeDimensions}");
+            }
+
 
             // Position each node in the grid
             for (var i = 0; i < nodes.Count; i++)
@@ -41,7 +45,6 @@ namespace SceneConnections.Editor.Utils
                 );
 
                 SetNodePosition(nodes[i], position, maxNodeDimensions);
-                
             }
         }
 
@@ -49,10 +52,10 @@ namespace SceneConnections.Editor.Utils
         {
             // Aim for a golden ratio-like aspect ratio (1.618)
             const float targetAspectRatio = 1.618f;
-            
+
             // Calculate columns based on desired aspect ratio
             var columns = Mathf.RoundToInt(Mathf.Sqrt(nodeCount * targetAspectRatio));
-            
+
             // Ensure we have at least one column
             return Mathf.Max(1, columns);
         }
@@ -65,7 +68,7 @@ namespace SceneConnections.Editor.Utils
             foreach (var node in nodes)
             {
                 var currentRect = node.GetPosition();
-                
+
                 // Only consider non-zero dimensions
                 if (currentRect.width > 0)
                     maxWidth = Mathf.Max(maxWidth, currentRect.width);
@@ -81,7 +84,7 @@ namespace SceneConnections.Editor.Utils
             var currentRect = node.GetPosition();
             var width = currentRect.width > 0 ? currentRect.width : standardSize.x;
             var height = currentRect.height > 0 ? currentRect.height : standardSize.y;
-            
+
             var newRect = new Rect(position, new Vector2(width, height));
             node.SetPosition(newRect);
         }
