@@ -135,6 +135,17 @@ namespace SceneConnections.Editor
             toolbar.style.right = 0;
         }
 
+        /// <summary>
+        /// Define minimap for current graphView to be added
+        /// </summary>
+        private void AddMiniMap()
+        {
+            var minimap = new NavigableMinimap(this);
+            minimap.SetPosition(new Rect(15, 50, 200, 100));
+            minimap.anchored = true;
+            Add(minimap);
+        }
+
         private void OnSearchTextChanged(ChangeEvent<string> evt)
         {
             var searchText = evt.newValue.ToLowerInvariant();
@@ -349,6 +360,8 @@ namespace SceneConnections.Editor
 
                     var scriptPaths = ScriptFinder.GetAllScriptPaths();
                     var allReferences = ClassParser.GetAllClassReferencesParallel(scriptPaths);
+                    // TODO: Add this many nodes
+                    Debug.Log(allReferences.Count);
 
                     foreach (var (scriptName, _) in allReferences)
                     {
@@ -392,8 +405,6 @@ namespace SceneConnections.Editor
 
         private void UpdateLayout()
         {
-            // Your existing layout update code here
-            // For example:
             EditorApplication.delayCall += LayoutNodesUsingManager;
             foreach (var node in nodes)
             {
@@ -578,16 +589,12 @@ namespace SceneConnections.Editor
         {
             var container = direction == Direction.Output ? node.outputContainer : node.inputContainer;
 
-            if (container.childCount == 0)
-            {
-                var port = node.InstantiatePort(Orientation.Horizontal, direction, Port.Capacity.Multi, typeof(MonoScript));
-                container.Add(port);
-                node.RefreshPorts();
-                node.RefreshExpandedState();
-                return port;
-            }
-
-            return container[0] as Port;
+            if (container.childCount != 0) return container[0] as Port;
+            var port = node.InstantiatePort(Orientation.Horizontal, direction, Port.Capacity.Multi, typeof(MonoScript));
+            container.Add(port);
+            node.RefreshPorts();
+            node.RefreshExpandedState();
+            return port;
         }
 
         /// <summary>
@@ -603,7 +610,7 @@ namespace SceneConnections.Editor
         }
 
         /// <summary>
-        /// Call to organize the layout of all nodes
+        /// Call to organize the layout of all nodes for <b>NodesAreComponents</b>
         /// </summary>
         private void LayoutNodes(Constants.ComponentGraphDrawType representation)
         {
@@ -696,18 +703,6 @@ namespace SceneConnections.Editor
                 finalWidth,
                 finalHeight
             ));
-        }
-
-
-        /// <summary>
-        /// Define minimap for current graphView to be added
-        /// </summary>
-        private void AddMiniMap()
-        {
-            var minimap = new NavigableMinimap(this);
-            minimap.SetPosition(new Rect(15, 50, 200, 100));
-            minimap.anchored = true;
-            Add(minimap);
         }
 
 
