@@ -14,8 +14,8 @@ namespace SceneConnections.Editor.Utils
 {
     public class NodeGraphBuilder
     {
-        public int AmountOfNodes;
-        public int BatchSize;
+        public int AmountOfNodes = 10000;
+        public int BatchSize = 2500;
         private bool _isProcessing;
         private float _progress;
 

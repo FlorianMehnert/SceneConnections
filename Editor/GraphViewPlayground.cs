@@ -13,6 +13,7 @@ namespace SceneConnections.Editor
         private int _batchSize;
 
         private readonly NodeGraphBuilder _nodeGraphBuilder;
+        private readonly EdgeBuilder _edgeConnector;
 
         public GraphViewPlayground()
         {
@@ -31,6 +32,10 @@ namespace SceneConnections.Editor
             _nodeGraphBuilder = new NodeGraphBuilder(this);
             _nodeGraphBuilder.SetupProgressBar();
 
+            _edgeConnector = new EdgeBuilder(this);
+            _edgeConnector.SetupProgressBar();
+            _edgeConnector.AddPorts();
+
             RegisterCallback<KeyDownEvent>(OnKeyDownEvent);
         }
 
@@ -40,6 +45,10 @@ namespace SceneConnections.Editor
             {
                 case true when evt.keyCode == KeyCode.R:
                     _nodeGraphBuilder.BuildGraph();
+                    break;
+                case true when evt.keyCode == KeyCode.E:
+                    _edgeConnector.GenerateRandomEdgesAsync();
+                    RefreshNodes();
                     break;
             }
         }
@@ -53,7 +62,10 @@ namespace SceneConnections.Editor
                 GUI.enabled = !_nodeGraphBuilder.GetIsProcessing();
                 EditorGUI.BeginChangeCheck();
                 _nodeGraphBuilder.AmountOfNodes = EditorGUILayout.IntSlider("Max Nodes", _nodeGraphBuilder.AmountOfNodes, 1, 10000);
-                _nodeGraphBuilder.BatchSize = EditorGUILayout.IntSlider("Max Nodes", _nodeGraphBuilder.BatchSize, 1, _nodeGraphBuilder.AmountOfNodes);
+                _nodeGraphBuilder.BatchSize = EditorGUILayout.IntSlider("Batch Size", _nodeGraphBuilder.BatchSize, 1, _nodeGraphBuilder.AmountOfNodes);
+                
+                _edgeConnector.EdgeCount = EditorGUILayout.IntSlider("Edge Count", _edgeConnector.EdgeCount, 1, 100000);
+                _edgeConnector.BatchSize = EditorGUILayout.IntSlider("Batch Size", _edgeConnector.BatchSize, 1, _edgeConnector.EdgeCount);
 
 
                 if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(60)))
@@ -76,6 +88,15 @@ namespace SceneConnections.Editor
             toolbar.style.left = 0;
             toolbar.style.top = 0;
             toolbar.style.right = 0;
+        }
+        
+        private void RefreshNodes()
+        {
+            foreach (var node in nodes)
+            {
+                node.RefreshExpandedState();
+                node.RefreshPorts();
+            }
         }
     }
 
