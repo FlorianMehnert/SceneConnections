@@ -17,7 +17,7 @@ In this project there are multiple revisions of the node overview editor
 - [x] Add script visualization to CreateGraph method (2.11.2024)
 - [x] Try out/try to understand IXLAB example scene (2.11.2024)
 - [ ] Add connectivity between nodes via drag and drop
-
+- [x] Test performance of unity editor: nodes/edges (4./5.11.2024)
 
 ### Script visualization
 - [x] ~~Performant script parsing using reflection~~ script parsing utilizing parallelism since no ui (2.11.2024)
