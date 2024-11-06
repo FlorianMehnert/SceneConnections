@@ -12,7 +12,9 @@ namespace SceneConnections.Editor
 
         private void OnEnable()
         {
-            _graphView = new ComponentGraphView();
+            var hightlightColor = new Color(1f, 0.8f, 0.2f, 1f);
+            var defaultColor = new Color(0.2f, 0.2f, 0.2f, .5f);
+            _graphView = new ComponentGraphView(defaultColor, hightlightColor);
             rootVisualElement.Add(_graphView);
 
             var setComponentGraphDrawType = new DropdownField("Set Component Graph Draw Type")
@@ -20,10 +22,7 @@ namespace SceneConnections.Editor
                 choices = { "nodes are components", "nodes are game objects", "nodes are scripts" },
                 value = "nodes are game objects"
             };
-            setComponentGraphDrawType.RegisterValueChangedCallback(evt =>
-            {
-                _graphView.SetComponentGraphDrawType(Constants.ToCgdt(evt.newValue));
-            });
+            setComponentGraphDrawType.RegisterValueChangedCallback(evt => { _graphView.SetComponentGraphDrawType(Constants.ToCgdt(evt.newValue)); });
             rootVisualElement.Add(setComponentGraphDrawType);
 
             var refreshButton = new Button(() =>

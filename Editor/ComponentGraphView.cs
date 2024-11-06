@@ -23,9 +23,7 @@ namespace SceneConnections.Editor
         /// </summary>
         private readonly Dictionary<Component, Node> _componentNodes = new();
 
-        private readonly Color _defaultNodeColor = new(0.2f, 0.2f, 0.2f, .5f);
         private readonly Dictionary<GameObject, Group> _gameObjectGroups = new();
-        private readonly Color _highlightColor = new(1f, 0.8f, 0.2f, 1f);
         private readonly NodeGraphBuilder _nodeGraphBuilder;
         private readonly Dictionary<string, Node> _scripts = new();
         private readonly InterfaceBuilder _interfaceBuilder;
@@ -36,12 +34,13 @@ namespace SceneConnections.Editor
         private Constants.ComponentGraphDrawType _drawType = Constants.ComponentGraphDrawType.NodesAreGameObjects;
         private bool _needsLayout;
 
-        private List<Node> _nodes;
-        private TextField _searchField;
+        private IConnectionGraphView _connectionGraphViewImplementation;
 
 
-        public ComponentGraphView()
+        public ComponentGraphView(Color defaultNodeColor, Color highlightColor)
         {
+            HighlightColor = highlightColor;
+            DefaultNodeColor = defaultNodeColor;
             SetupZoom(.01f, 5.0f);
             this.AddManipulator(new ContentDragger());
             this.AddManipulator(new SelectionDragger());
@@ -52,25 +51,14 @@ namespace SceneConnections.Editor
             style.flexGrow = 1;
             style.flexShrink = 1;
             RegisterCallback<KeyDownEvent>(OnKeyDownEvent);
-            
+
             _nodeGraphBuilder = new NodeGraphBuilder(this);
             _nodeGraphBuilder.SetupProgressBar();
             _interfaceBuilder = new InterfaceBuilder(this);
             SetupUI();
-            CreateSearchBar();
+            _interfaceBuilder.CreateSearchBar();
         }
 
-        private void CreateSearchBar()
-        {
-            _searchField = new TextField();
-            _searchField.RegisterValueChangedCallback(OnSearchTextChanged);
-            _searchField.style.position = Position.Absolute;
-            _searchField.style.top = 25;
-            _searchField.style.left = 0;
-            _searchField.style.width = 200;
-            _searchField.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
-            Add(_searchField);
-        }
 
         private void SetupUI()
         {
@@ -93,11 +81,10 @@ namespace SceneConnections.Editor
             var minimap = new NavigableMinimap(this);
             minimap.SetPosition(new Rect(3, 55, 212, 100));
             minimap.anchored = true;
-            mainContainer.Add(minimap);
             DrawToolbar(leftContainer);
-
             mainContainer.Add(leftContainer);
             Add(mainContainer);
+            Add(minimap);
         }
 
         private void DrawToolbar(VisualElement parentElement)
@@ -160,67 +147,6 @@ namespace SceneConnections.Editor
             parentElement.Add(uiElementsToolbar);
         }
 
-        private void OnSearchTextChanged(ChangeEvent<string> evt)
-        {
-            var searchText = evt.newValue.ToLowerInvariant();
-            SearchNodes(searchText);
-        }
-
-        private void SearchNodes(string searchText)
-        {
-            // Reset all nodes to default color
-            foreach (var node in _nodes)
-            {
-                ResetNodeColor(node);
-            }
-
-            if (string.IsNullOrEmpty(searchText))
-                return;
-
-            // Find and highlight matching nodes
-            var matchingNodes = _nodes.Where(n =>
-                ContainsText(n, searchText) ||
-                IsCustomNodeMatch(n, searchText)
-            );
-
-            foreach (var node in matchingNodes)
-            {
-                HighlightNode(node);
-            }
-        }
-
-        // TODO: change searching based on some checkboxes
-        // e.g. if search in properties also search in the names of connected components
-        private static bool ContainsText(Node node, string searchText)
-        {
-            return node.title.ToLowerInvariant().Contains(searchText);
-        }
-
-        private static bool IsCustomNodeMatch(Node node, string searchText)
-        {
-            return node != null && node.title.ToLowerInvariant().Contains(searchText);
-        }
-
-        /// <summary>
-        /// Highlight node on search hit
-        /// </summary>
-        /// <param name="node">node to be highlighted</param>
-        private void HighlightNode(Node node)
-        {
-            node.style.backgroundColor = _highlightColor;
-            node.MarkDirtyRepaint();
-        }
-
-        // TODO: reset to actual background color
-        /// <summary>
-        /// Set node back to original background
-        /// </summary>
-        /// <param name="node"></param>
-        private void ResetNodeColor(Node node)
-        {
-            node.style.backgroundColor = _defaultNodeColor;
-            node.MarkDirtyRepaint();
-        }
 
         /// <summary>
         /// Handle KeyDown presses - shortcut handling
@@ -326,7 +252,7 @@ namespace SceneConnections.Editor
             Constants.ComponentGraphDrawType representation = Constants.ComponentGraphDrawType.NodesAreComponents)
         {
             var allGameObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.InstanceID);
-            _nodes = new List<Node>();
+            Nodes = new List<Node>();
             switch (representation)
             {
                 // groups contain nodes that are components of a game object
@@ -351,7 +277,7 @@ namespace SceneConnections.Editor
                     foreach (var gameObject in allGameObjects)
                     {
                         var components = gameObject.GetComponents<Component>();
-                        _nodes.Add(CreateCompactNode(gameObject, components));
+                        Nodes.Add(CreateCompactNode(gameObject, components));
                     }
 
                     break;
@@ -367,24 +293,19 @@ namespace SceneConnections.Editor
 
                     var scriptPaths = ScriptFinder.GetAllScriptPaths();
                     var allReferences = ClassParser.GetAllClassReferencesParallel(scriptPaths);
-                    // TODO: Add this many nodes
-                    Debug.Log(allReferences.Count);
-
                     foreach (var (scriptName, _) in allReferences)
                     {
                         var node = new Node { title = scriptName };
                         _scripts[scriptName] = node;
-                        _nodes.Add(node);
+                        Nodes.Add(node);
                         AddElement(node);
                     }
 
-                    // connect all Fields that have an existing node available
                     Parallel.ForEach(allReferences, reference =>
                     {
                         var sourceScriptName = reference.Key;
                         if (!_scripts.TryGetValue(sourceScriptName, out var sourceNode)) return;
 
-                        // simplify references: Editor.Layout -> Layout
                         foreach (var className in reference.Value.Select(referencedScript =>
                                      referencedScript.Contains(".")
                                          ? referencedScript[
@@ -511,7 +432,7 @@ namespace SceneConnections.Editor
         /// </summary>
         private void LayoutNodesUsingManager()
         {
-            NodeLayoutManager.LayoutNodes(_nodes);
+            NodeLayoutManager.LayoutNodes(Nodes);
         }
 
         /// <summary>
@@ -725,5 +646,10 @@ namespace SceneConnections.Editor
             get => _pathTextField.value;
             set => _pathTextField.value = value;
         }
+
+        public TextField SearchField { get; set; }
+        public StyleColor HighlightColor { get; }
+        public List<Node> Nodes { get; private set; }
+        public StyleColor DefaultNodeColor { get; }
     }
 }
