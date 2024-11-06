@@ -16,20 +16,20 @@ using Object = UnityEngine.Object;
 
 namespace SceneConnections.Editor
 {
-    public class ComponentGraphView : GraphView
+    public class ComponentGraphView : GraphView, IConnectionGraphView
     {
         /// <summary>
         /// Store all Node ↔ Component relationships for the cases of <b>NodesAreComponents</b>
         /// </summary>
         private readonly Dictionary<Component, Node> _componentNodes = new();
 
-        private readonly Label _debuggingLabel;
         private readonly Color _defaultNodeColor = new(0.2f, 0.2f, 0.2f, .5f);
         private readonly Dictionary<GameObject, Group> _gameObjectGroups = new();
         private readonly Color _highlightColor = new(1f, 0.8f, 0.2f, 1f);
-        private readonly Label _loadingLabel;
         private readonly NodeGraphBuilder _nodeGraphBuilder;
         private readonly Dictionary<string, Node> _scripts = new();
+        private readonly InterfaceBuilder _interfaceBuilder;
+        private TextField _pathTextField;
 
         private int _currentDebuggedRect;
 
@@ -46,47 +46,18 @@ namespace SceneConnections.Editor
             this.AddManipulator(new ContentDragger());
             this.AddManipulator(new SelectionDragger());
             this.AddManipulator(new RectangleSelector());
-            AddMiniMap();
-
             var gridBackground = new GridBackground();
             Insert(0, gridBackground);
             gridBackground.StretchToParentSize();
             style.flexGrow = 1;
             style.flexShrink = 1;
-
-            _loadingLabel = new Label("Calculating layout...")
-            {
-                style =
-                {
-                    display = DisplayStyle.None,
-                    position = Position.Absolute,
-                    top = 27,
-                    left = 900,
-                    backgroundColor = new Color(.5f, 0, 0, 0.8f),
-                    color = Color.white
-                }
-            };
-
-            _debuggingLabel = new Label("DEBUGGING_PLACEHOLDER")
-            {
-                style =
-                {
-                    display = DisplayStyle.Flex,
-                    position = Position.Absolute,
-                    top = 27,
-                    left = 700,
-                    backgroundColor = new Color(.2f, .8f, .8f, 0.8f),
-                    color = Color.black
-                }
-            };
-
-            Add(_loadingLabel);
-            Add(_debuggingLabel);
             RegisterCallback<KeyDownEvent>(OnKeyDownEvent);
-            CreateSearchBar();
+            
             _nodeGraphBuilder = new NodeGraphBuilder(this);
             _nodeGraphBuilder.SetupProgressBar();
-            DrawToolbar();
+            _interfaceBuilder = new InterfaceBuilder(this);
+            SetupUI();
+            CreateSearchBar();
         }
 
         private void CreateSearchBar()
@@ -95,13 +66,41 @@ namespace SceneConnections.Editor
             _searchField.RegisterValueChangedCallback(OnSearchTextChanged);
             _searchField.style.position = Position.Absolute;
             _searchField.style.top = 25;
-            _searchField.style.left = 5;
+            _searchField.style.left = 0;
             _searchField.style.width = 200;
             _searchField.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
             Add(_searchField);
         }
 
-        private void DrawToolbar()
+        private void SetupUI()
+        {
+            var mainContainer = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    flexGrow = 1
+                }
+            };
+            var leftContainer = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Column,
+                    flexGrow = 1
+                }
+            };
+            var minimap = new NavigableMinimap(this);
+            minimap.SetPosition(new Rect(3, 55, 212, 100));
+            minimap.anchored = true;
+            mainContainer.Add(minimap);
+            DrawToolbar(leftContainer);
+
+            mainContainer.Add(leftContainer);
+            Add(mainContainer);
+        }
+
+        private void DrawToolbar(VisualElement parentElement)
         {
             var toolbar = new IMGUIContainer(() =>
             {
@@ -113,7 +112,6 @@ namespace SceneConnections.Editor
                     _nodeGraphBuilder.AmountOfNodes, 1, 10000);
                 _nodeGraphBuilder.BatchSize = EditorGUILayout.IntSlider("Batch Size", _nodeGraphBuilder.BatchSize, 1,
                     _nodeGraphBuilder.AmountOfNodes);
-
 
                 if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(60)))
                 {
@@ -131,22 +129,35 @@ namespace SceneConnections.Editor
                 EditorGUILayout.EndHorizontal();
             });
 
-            Add(toolbar);
-            toolbar.style.position = Position.Absolute;
-            toolbar.style.left = 0;
-            toolbar.style.top = 0;
-            toolbar.style.right = 0;
-        }
+            toolbar.style.flexGrow = 1;
+            parentElement.Add(toolbar);
 
-        /// <summary>
-        /// Define minimap for current graphView to be added
-        /// </summary>
-        private void AddMiniMap()
-        {
-            var minimap = new NavigableMinimap(this);
-            minimap.SetPosition(new Rect(15, 50, 200, 100));
-            minimap.anchored = true;
-            Add(minimap);
+            // Add additional UI elements below the IMGUI toolbar
+            var uiElementsToolbar = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    justifyContent = Justify.SpaceBetween,
+                    paddingTop = 5
+                }
+            };
+
+            _pathTextField = new TextField("Path:")
+            {
+                isReadOnly = true,
+                style =
+                {
+                    flexGrow = 1
+                }
+            };
+
+            var selectPathButton = new Button(_interfaceBuilder.OpenPathDialog) { text = "Choose Path" };
+
+            uiElementsToolbar.Add(_pathTextField);
+            uiElementsToolbar.Add(selectPathButton);
+
+            parentElement.Add(uiElementsToolbar);
         }
 
         private void OnSearchTextChanged(ChangeEvent<string> evt)
@@ -220,17 +231,14 @@ namespace SceneConnections.Editor
             switch (evt.ctrlKey)
             {
                 case true when evt.keyCode == KeyCode.R:
-                    _debuggingLabel.text = "refresh graph";
                     RefreshGraph();
                     evt.StopPropagation();
                     break;
                 case true when evt.keyCode == KeyCode.L:
-                    _debuggingLabel.text = "layout nodes";
                     LayoutNodes(_drawType);
                     evt.StopPropagation();
                     break;
                 case true when evt.keyCode == KeyCode.C:
-                    _debuggingLabel.text = "create graph";
                     _nodeGraphBuilder.BuildGraph();
                     evt.StopPropagation();
                     break;
@@ -242,9 +250,6 @@ namespace SceneConnections.Editor
                         if (_currentDebuggedRect < i &&
                             group.containedElements.OfType<GameObjectNode>().ToArray().Length > 1)
                         {
-                            _debuggingLabel.text = "i: " + i + " cur: " + _currentDebuggedRect + " size: " +
-                                                   group.containedElements.OfType<GameObjectNode>().ToList()[1]
-                                                       .contentRect;
                             group.selected = true;
                             break;
                         }
@@ -291,7 +296,6 @@ namespace SceneConnections.Editor
             ClearGraph();
             CreateGraph(_drawType);
 
-            _loadingLabel.style.display = DisplayStyle.Flex;
             _needsLayout = true;
             EditorApplication.delayCall += PerformLayout;
         }
@@ -304,7 +308,6 @@ namespace SceneConnections.Editor
             if (!_needsLayout) return;
 
             LayoutNodes(_drawType);
-            _loadingLabel.style.display = DisplayStyle.None;
             _needsLayout = false;
         }
 
@@ -715,6 +718,12 @@ namespace SceneConnections.Editor
         public void SetComponentGraphDrawType(Constants.ComponentGraphDrawType drawType)
         {
             _drawType = drawType;
+        }
+
+        public string TextFieldValue
+        {
+            get => _pathTextField.value;
+            set => _pathTextField.value = value;
         }
     }
 }

@@ -21,7 +21,7 @@ namespace SceneConnections.Editor.Utils
         private List<Edge> _edges = new();
         private bool _isProcessing;
         private float _progress;
-        public int BatchSize = 2500; // Default batch size
+        private const int BatchSize = 2500; // Default batch size
         public int EdgeCount = 5000;
 
         // Progress UI elements

@@ -19,13 +19,7 @@ namespace SceneConnections.Editor
             SetupCallbacks();
 
             anchored = true;
-
-            // Set default minimap style
-            style.width = 200;
-            style.height = 200;
-            style.position = Position.Absolute;
-            style.right = 10;
-            style.top = 10;
+            style.display = DisplayStyle.Flex;
 
             // Calculate initial scale factors
             UpdateScaleFactors();
@@ -49,12 +43,10 @@ namespace SceneConnections.Editor
 
             RegisterCallback<MouseUpEvent>(evt =>
             {
-                if (_isDragging)
-                {
-                    _isDragging = false;
-                    this.ReleaseMouse();
-                    evt.StopPropagation();
-                }
+                if (!_isDragging) return;
+                _isDragging = false;
+                this.ReleaseMouse();
+                evt.StopPropagation();
             });
 
             RegisterCallback<MouseMoveEvent>(evt =>

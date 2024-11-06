@@ -108,7 +108,7 @@ namespace SceneConnections.Editor
                     position = Position.Absolute,
                     left = 0,
                     right = 0,
-                    top = 35 // Offset from IMGUI toolbar height
+                    top = 25 // Offset from IMGUI toolbar height
                 }
             };
 
@@ -131,7 +131,7 @@ namespace SceneConnections.Editor
         private void OpenPathDialog()
         {
             // Open the folder selection dialog and store the selected path
-            string path = EditorUtility.OpenFolderPanel("Select Path", "", "");
+            var path = EditorUtility.OpenFolderPanel("Select Path", "", "");
 
             if (!string.IsNullOrEmpty(path))
             {
