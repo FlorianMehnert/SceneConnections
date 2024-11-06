@@ -1,6 +1,6 @@
 using System;
 
-namespace SceneConnections
+namespace SceneConnections.Editor.Utils
 {
     public static class Constants
     {

@@ -1,19 +1,19 @@
 using SceneConnections.Editor.Utils;
+using UnityEditor;
+using UnityEditor.Experimental.GraphView;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace SceneConnections.Editor
 {
-    using UnityEngine;
-    using UnityEditor.Experimental.GraphView;
-    using UnityEditor;
-
     public class GraphViewPlayground : GraphView
     {
-        private int _amountOfNodes;
-        private int _batchSize;
+        private readonly EdgeBuilder _edgeConnector;
 
         private readonly NodeGraphBuilder _nodeGraphBuilder;
-        private readonly EdgeBuilder _edgeConnector;
+        private int _amountOfNodes;
+        private int _batchSize;
+        private TextField _pathTextField;
 
         public GraphViewPlayground()
         {
@@ -55,17 +55,24 @@ namespace SceneConnections.Editor
 
         private void DrawToolbar()
         {
+            // Create an IMGUIContainer to host IMGUI-based controls.
             var toolbar = new IMGUIContainer(() =>
             {
                 EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
 
+                // Disable controls while processing
                 GUI.enabled = !_nodeGraphBuilder.GetIsProcessing();
-                EditorGUI.BeginChangeCheck();
-                _nodeGraphBuilder.AmountOfNodes = EditorGUILayout.IntSlider("Max Nodes", _nodeGraphBuilder.AmountOfNodes, 1, 10000);
-                _nodeGraphBuilder.BatchSize = EditorGUILayout.IntSlider("Batch Size", _nodeGraphBuilder.BatchSize, 1, _nodeGraphBuilder.AmountOfNodes);
-                
+
+                // Slider for Max Nodes
+                _nodeGraphBuilder.AmountOfNodes =
+                    EditorGUILayout.IntSlider("Max Nodes", _nodeGraphBuilder.AmountOfNodes, 1, 10000);
+
+                // Slider for Batch Size
+                _nodeGraphBuilder.BatchSize = EditorGUILayout.IntSlider("Batch Size", _nodeGraphBuilder.BatchSize, 1,
+                    _nodeGraphBuilder.AmountOfNodes);
+
+                // Slider for Edge Count
                 _edgeConnector.EdgeCount = EditorGUILayout.IntSlider("Edge Count", _edgeConnector.EdgeCount, 1, 100000);
-                _edgeConnector.BatchSize = EditorGUILayout.IntSlider("Batch Size", _edgeConnector.BatchSize, 1, _edgeConnector.EdgeCount);
 
 
                 if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(60)))
@@ -74,22 +81,64 @@ namespace SceneConnections.Editor
                     _nodeGraphBuilder.InitGraphAsync();
                 }
 
-                if (_nodeGraphBuilder.PerformanceMetrics.Count > 0 && GUILayout.Button("Export Data", EditorStyles.toolbarButton, GUILayout.Width(80)))
+                if (_nodeGraphBuilder.PerformanceMetrics.Count > 0 &&
+                    GUILayout.Button("Export Data", EditorStyles.toolbarButton, GUILayout.Width(80)))
                 {
                     _nodeGraphBuilder.ExportPerformanceData();
                 }
 
                 GUI.enabled = true;
+
                 EditorGUILayout.EndHorizontal();
             });
 
-            Add(toolbar);
             toolbar.style.position = Position.Absolute;
             toolbar.style.left = 0;
             toolbar.style.top = 0;
             toolbar.style.right = 0;
+
+            Add(toolbar);
+
+            var uiElementsToolbar = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    justifyContent = Justify.SpaceBetween,
+                    position = Position.Absolute,
+                    left = 0,
+                    right = 0,
+                    top = 35 // Offset from IMGUI toolbar height
+                }
+            };
+
+            _pathTextField = new TextField("Path:")
+            {
+                isReadOnly = true,
+                style =
+                {
+                    flexGrow = 1
+                }
+            };
+            uiElementsToolbar.Add(_pathTextField);
+
+            var selectPathButton = new Button(OpenPathDialog) { text = "Choose Path" };
+            uiElementsToolbar.Add(selectPathButton);
+
+            Add(uiElementsToolbar);
         }
-        
+
+        private void OpenPathDialog()
+        {
+            // Open the folder selection dialog and store the selected path
+            string path = EditorUtility.OpenFolderPanel("Select Path", "", "");
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                _pathTextField.value = path;
+            }
+        }
+
         private void RefreshNodes()
         {
             foreach (var node in nodes)
@@ -105,14 +154,6 @@ namespace SceneConnections.Editor
         private GraphView _graphView;
         private bool _isRefreshing;
 
-        [MenuItem("Window/Connections v0 #&0")]
-        public static void OpenWindow()
-        {
-            var window = GetWindow<GraphViewPlaygroundViewer>();
-            window.titleContent = new GUIContent("GraphView Playground");
-            window.minSize = new Vector2(800, 600);
-        }
-
         private void OnEnable()
         {
             _graphView = new GraphViewPlayground();
@@ -122,6 +163,14 @@ namespace SceneConnections.Editor
         private void OnDisable()
         {
             rootVisualElement.Remove(_graphView);
+        }
+
+        [MenuItem("Window/Connections v0 #&0")]
+        public static void OpenWindow()
+        {
+            var window = GetWindow<GraphViewPlaygroundViewer>();
+            window.titleContent = new GUIContent("GraphView Playground");
+            window.minSize = new Vector2(800, 600);
         }
     }
 }

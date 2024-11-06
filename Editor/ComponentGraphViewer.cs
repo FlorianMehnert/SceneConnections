@@ -1,21 +1,14 @@
+using SceneConnections.Editor.Utils;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace SceneConnections.Editor
 {
-    public class ComponentGraphViewer : UnityEditor.EditorWindow
+    public class ComponentGraphViewer : EditorWindow
     {
         private ComponentGraphView _graphView;
         private bool _isRefreshing;
-
-        [MenuItem("Window/Connections v2 #&2")]
-        public static void OpenWindow()
-        {
-            var window = GetWindow<ComponentGraphViewer>();
-            window.titleContent = new GUIContent("Enhanced Component Graph");
-            window.minSize = new Vector2(800, 600);
-        }
 
         private void OnEnable()
         {
@@ -27,7 +20,10 @@ namespace SceneConnections.Editor
                 choices = { "nodes are components", "nodes are game objects", "nodes are scripts" },
                 value = "nodes are game objects"
             };
-            setComponentGraphDrawType.RegisterValueChangedCallback(evt => { _graphView.SetComponentGraphDrawType(Constants.ToCgdt(evt.newValue)); });
+            setComponentGraphDrawType.RegisterValueChangedCallback(evt =>
+            {
+                _graphView.SetComponentGraphDrawType(Constants.ToCgdt(evt.newValue));
+            });
             rootVisualElement.Add(setComponentGraphDrawType);
 
             var refreshButton = new Button(() =>
@@ -49,6 +45,14 @@ namespace SceneConnections.Editor
         private void OnDisable()
         {
             rootVisualElement.Remove(_graphView);
+        }
+
+        [MenuItem("Window/Connections v2 #&2")]
+        public static void OpenWindow()
+        {
+            var window = GetWindow<ComponentGraphViewer>();
+            window.titleContent = new GUIContent("Enhanced Component Graph");
+            window.minSize = new Vector2(800, 600);
         }
     }
 }

@@ -28,6 +28,8 @@ namespace SceneConnections.Editor
         private readonly Dictionary<GameObject, Group> _gameObjectGroups = new();
         private readonly Color _highlightColor = new(1f, 0.8f, 0.2f, 1f);
         private readonly Label _loadingLabel;
+        private readonly NodeGraphBuilder _nodeGraphBuilder;
+        private readonly Dictionary<string, Node> _scripts = new();
 
         private int _currentDebuggedRect;
 
@@ -35,9 +37,7 @@ namespace SceneConnections.Editor
         private bool _needsLayout;
 
         private List<Node> _nodes;
-        private readonly Dictionary<string, Node> _scripts = new();
         private TextField _searchField;
-        private readonly NodeGraphBuilder _nodeGraphBuilder;
 
 
         public ComponentGraphView()
@@ -109,8 +109,10 @@ namespace SceneConnections.Editor
 
                 GUI.enabled = !_nodeGraphBuilder.GetIsProcessing();
                 EditorGUI.BeginChangeCheck();
-                _nodeGraphBuilder.AmountOfNodes = EditorGUILayout.IntSlider("Maximal Amount of Nodes", _nodeGraphBuilder.AmountOfNodes, 1, 10000);
-                _nodeGraphBuilder.BatchSize = EditorGUILayout.IntSlider("Batch Size", _nodeGraphBuilder.BatchSize, 1, _nodeGraphBuilder.AmountOfNodes);
+                _nodeGraphBuilder.AmountOfNodes = EditorGUILayout.IntSlider("Maximal Amount of Nodes",
+                    _nodeGraphBuilder.AmountOfNodes, 1, 10000);
+                _nodeGraphBuilder.BatchSize = EditorGUILayout.IntSlider("Batch Size", _nodeGraphBuilder.BatchSize, 1,
+                    _nodeGraphBuilder.AmountOfNodes);
 
 
                 if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(60)))
@@ -119,7 +121,8 @@ namespace SceneConnections.Editor
                     _nodeGraphBuilder.InitGraphAsync();
                 }
 
-                if (_nodeGraphBuilder.PerformanceMetrics.Count > 0 && GUILayout.Button("Export Data", EditorStyles.toolbarButton, GUILayout.Width(80)))
+                if (_nodeGraphBuilder.PerformanceMetrics.Count > 0 &&
+                    GUILayout.Button("Export Data", EditorStyles.toolbarButton, GUILayout.Width(80)))
                 {
                     _nodeGraphBuilder.ExportPerformanceData();
                 }
@@ -240,7 +243,8 @@ namespace SceneConnections.Editor
                             group.containedElements.OfType<GameObjectNode>().ToArray().Length > 1)
                         {
                             _debuggingLabel.text = "i: " + i + " cur: " + _currentDebuggedRect + " size: " +
-                                                   group.containedElements.OfType<GameObjectNode>().ToList()[1].contentRect;
+                                                   group.containedElements.OfType<GameObjectNode>().ToList()[1]
+                                                       .contentRect;
                             group.selected = true;
                             break;
                         }
@@ -293,7 +297,7 @@ namespace SceneConnections.Editor
         }
 
         /// <summary>
-        /// Wrapper method for <see cref="LayoutNodes(SceneConnections.Constants.ComponentGraphDrawType)"/> that adds debug statements and visual feedback
+        /// Wrapper method for <see cref="LayoutNodes(Constants.ComponentGraphDrawType)"/> that adds debug statements and visual feedback
         /// </summary>
         private void PerformLayout()
         {
@@ -378,9 +382,11 @@ namespace SceneConnections.Editor
                         if (!_scripts.TryGetValue(sourceScriptName, out var sourceNode)) return;
 
                         // simplify references: Editor.Layout -> Layout
-                        foreach (var className in reference.Value.Select(referencedScript => referencedScript.Contains(".")
-                                     ? referencedScript[(referencedScript.LastIndexOf(".", StringComparison.Ordinal) + 1)..]
-                                     : referencedScript))
+                        foreach (var className in reference.Value.Select(referencedScript =>
+                                     referencedScript.Contains(".")
+                                         ? referencedScript[
+                                             (referencedScript.LastIndexOf(".", StringComparison.Ordinal) + 1)..]
+                                         : referencedScript))
                         {
                             if (_scripts.TryGetValue(className, out var targetNode))
                             {
