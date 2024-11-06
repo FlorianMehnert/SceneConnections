@@ -19,6 +19,11 @@ namespace SceneConnections.Editor
             throw new System.NotImplementedException();
         }
 
+        public void AddElement(VisualElement element)
+        {
+            throw new System.NotImplementedException();
+        }
+
         public void DeleteElements(List<GraphElement> gvGraphElements)
         {
             throw new System.NotImplementedException();
@@ -81,7 +86,7 @@ namespace SceneConnections.Editor
 
         StyleColor HighlightColor { get; }
 
-        List<Node> Nodes { get; }
+        List<Node> Nodes { get; set; }
         StyleColor DefaultNodeColor { get; }
 
         string PathTextFieldValue { get; set; }
@@ -90,7 +95,7 @@ namespace SceneConnections.Editor
 
         public bool IsBusy { get; set; }
         public List<GraphElement> GraphElements { get; }
-        
+
         public NodeGraphBuilder NodeGraphBuilder { get; }
     }
 }

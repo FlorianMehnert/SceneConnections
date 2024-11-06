@@ -161,4 +161,3 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
         }
     }
 }
-

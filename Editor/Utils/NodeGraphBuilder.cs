@@ -24,14 +24,12 @@ namespace SceneConnections.Editor.Utils
         public readonly List<PerformanceMetrics> PerformanceMetrics = new();
         private readonly Stopwatch _totalStopwatch = new();
         private IMGUIContainer _progressBar;
-        private readonly List<Node> _nodes;
 
         public NodeGraphBuilder(IConnectionGraphView gv)
         {
             _gv = gv;
-            _nodes = new List<Node>();
         }
-        
+
         public void SetupProgressBar()
         {
             _progressBar = new IMGUIContainer(() =>
@@ -41,7 +39,7 @@ namespace SceneConnections.Editor.Utils
                 EditorGUI.ProgressBar(
                     new Rect(210, 27, 450, 17),
                     _progress,
-                    $"Processing Nodes: {_progress * 100:F1}% ({_nodes.Count} nodes)"
+                    $"Processing Nodes: {_progress * 100:F1}% ({_gv.Nodes?.Count} nodes)"
                 );
 
                 if (_totalStopwatch.IsRunning)
@@ -58,14 +56,14 @@ namespace SceneConnections.Editor.Utils
             _progressBar.style.left = 0;
             _progressBar.style.right = 0;
         }
-        
+
         public void BuildGraph()
         {
             if (_gv.IsBusy) return;
-            ((GraphView) _gv).DeleteElements(_gv.GraphElements.ToList());
+            ((GraphView)_gv).DeleteElements(_gv.GraphElements.ToList());
             InitGraphAsync();
         }
-        
+
         public async void InitGraphAsync()
         {
             if (_gv.IsBusy) return;
@@ -76,7 +74,6 @@ namespace SceneConnections.Editor.Utils
             PerformanceMetrics.Clear();
             _totalStopwatch.Restart();
 
-            _nodes.Clear();
             var batches = Mathf.CeilToInt((float)AmountOfNodes / BatchSize);
 
             // Pre-create all nodes
@@ -85,10 +82,10 @@ namespace SceneConnections.Editor.Utils
             {
                 var node = new Node { title = $"Node {i}" };
                 nodesToAdd.Add(node);
-                _nodes.Add(node);
+                _gv.Nodes.Add(node);
             }
 
-            // Add nodes in batches
+            // Add nodes in batches with proper layout
             for (var batch = 0; batch < batches; batch++)
             {
                 var batchMetrics = new PerformanceMetrics
@@ -106,7 +103,7 @@ namespace SceneConnections.Editor.Utils
                 // Add batch of nodes to graph
                 for (var i = 0; i < count; i++)
                 {
-                    _gv.Add(nodesToAdd[start + i]);
+                    ((GraphView)_gv).AddElement(nodesToAdd[start + i]);
                 }
 
                 batchStopwatch.Stop();
@@ -117,7 +114,7 @@ namespace SceneConnections.Editor.Utils
 
                 // Layout this batch
                 batchStopwatch.Restart();
-                var batchNodes = _nodes.Skip(start).Take(count).ToList();
+                var batchNodes = _gv.Nodes.Skip(start).Take(count).ToList();
                 NodeLayoutManager.LayoutNodes(batchNodes, silent: true);
                 batchStopwatch.Stop();
 
@@ -136,7 +133,7 @@ namespace SceneConnections.Editor.Utils
 
             Debug.Log($"Total processing time: {_totalStopwatch.Elapsed.TotalSeconds:F2} seconds");
         }
-        
+
         public void ExportPerformanceData()
         {
             var path = EditorUtility.SaveFilePanel(

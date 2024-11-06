@@ -15,7 +15,7 @@ namespace SceneConnections.Editor
         private int _batchSize;
         private TextField _pathTextField;
 
-        public GraphViewPlayground(StyleColor highlightColor, StyleColor defaultNodeColor )
+        public GraphViewPlayground(StyleColor highlightColor, StyleColor defaultNodeColor)
         {
             HighlightColor = highlightColor;
             Nodes = new List<Node>();
@@ -96,7 +96,6 @@ namespace SceneConnections.Editor
                 EditorGUILayout.EndHorizontal();
             });
 
-            
 
             toolbar.style.position = Position.Absolute;
             toolbar.style.left = 0;
@@ -134,7 +133,7 @@ namespace SceneConnections.Editor
             Add(uiElementsToolbar);
         }
 
-        public void DeleteElements(List<GraphElement> gvGraphElements)
+        public void DeleteElements()
         {
             base.DeleteElements(graphElements.ToList());
         }
@@ -160,7 +159,7 @@ namespace SceneConnections.Editor
         }
 
         public StyleColor HighlightColor { get; }
-        public List<Node> Nodes { get; }
+        public List<Node> Nodes { get; set; }
         public StyleColor DefaultNodeColor { get; }
         public string PathTextFieldValue { get; set; }
         public TextField PathTextField { get; set; }

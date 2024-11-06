@@ -76,12 +76,12 @@ namespace SceneConnections.Editor.Utils
                     });
 
                     // Calculate optimal node positions within group
-                    float[] rowHeights = new float[Mathf.CeilToInt(Mathf.Sqrt(nodes.Count))];
-                    float[] colWidths = new float[Mathf.CeilToInt((float)nodes.Count / rowHeights.Length)];
-                    Vector2[] nodePositions = CalculateOptimalNodePositions(nodes, padding, rowHeights, colWidths);
+                    var rowHeights = new float[Mathf.CeilToInt(Mathf.Sqrt(nodes.Count))];
+                    var colWidths = new float[Mathf.CeilToInt((float)nodes.Count / rowHeights.Length)];
+                    var nodePositions = CalculateOptimalNodePositions(nodes, padding, rowHeights, colWidths);
 
                     // Store node layouts with local positions (relative to group)
-                    for (int i = 0; i < nodes.Count; i++)
+                    for (var i = 0; i < nodes.Count; i++)
                     {
                         var nodeLayout = new LayoutState.NodeLayout
                         {
@@ -109,53 +109,51 @@ namespace SceneConnections.Editor.Utils
             // Sort groups by area for better packing
             groupLayouts.Sort((a, b) =>
             {
-                float areaA = a.FinalRect.width * a.FinalRect.height;
-                float areaB = b.FinalRect.width * b.FinalRect.height;
+                var areaA = a.FinalRect.width * a.FinalRect.height;
+                var areaB = b.FinalRect.width * b.FinalRect.height;
                 return areaB.CompareTo(areaA);
             });
 
             // Try different grid arrangements for groups
-            float bestTotalArea = float.MaxValue;
-            Vector2[] bestPositions = new Vector2[groupLayouts.Count];
+            var bestTotalArea = float.MaxValue;
+            var bestPositions = new Vector2[groupLayouts.Count];
 
-            int maxRows = Mathf.CeilToInt(Mathf.Sqrt(groupLayouts.Count));
+            var maxRows = Mathf.CeilToInt(Mathf.Sqrt(groupLayouts.Count));
 
-            for (int numRows = 1; numRows <= maxRows; numRows++)
+            for (var numRows = 1; numRows <= maxRows; numRows++)
             {
-                int numCols = Mathf.CeilToInt((float)groupLayouts.Count / numRows);
-                Vector2[] currentPositions = new Vector2[groupLayouts.Count];
+                var numCols = Mathf.CeilToInt((float)groupLayouts.Count / numRows);
+                var currentPositions = new Vector2[groupLayouts.Count];
 
-                float[] rowHeights = new float[numRows];
-                float[] colWidths = new float[numCols];
+                var rowHeights = new float[numRows];
+                var colWidths = new float[numCols];
 
                 // Calculate maximum dimensions for each row and column
-                for (int i = 0; i < groupLayouts.Count; i++)
+                for (var i = 0; i < groupLayouts.Count; i++)
                 {
-                    int row = i / numCols;
-                    int col = i % numCols;
+                    var row = i / numCols;
+                    var col = i % numCols;
 
-                    Rect rect = groupLayouts[i].FinalRect;
+                    var rect = groupLayouts[i].FinalRect;
                     rowHeights[row] = Mathf.Max(rowHeights[row], rect.height);
                     colWidths[col] = Mathf.Max(colWidths[col], rect.width);
                 }
 
                 // Calculate positions and total size
-                float currentY = padding;
-                float totalWidth = padding;
-                float totalHeight = padding;
+                var currentY = padding;
+                var totalWidth = padding;
+                var totalHeight = padding;
 
-                for (int row = 0; row < numRows; row++)
+                for (var row = 0; row < numRows; row++)
                 {
-                    float currentX = padding;
+                    var currentX = padding;
 
-                    for (int col = 0; col < numCols; col++)
+                    for (var col = 0; col < numCols; col++)
                     {
-                        int index = row * numCols + col;
-                        if (index < groupLayouts.Count)
-                        {
-                            currentPositions[index] = new Vector2(currentX, currentY);
-                            currentX += colWidths[col] + padding;
-                        }
+                        var index = row * numCols + col;
+                        if (index >= groupLayouts.Count) continue;
+                        currentPositions[index] = new Vector2(currentX, currentY);
+                        currentX += colWidths[col] + padding;
                     }
 
                     totalWidth = Mathf.Max(totalWidth, currentX);
@@ -163,23 +161,20 @@ namespace SceneConnections.Editor.Utils
                     totalHeight = currentY;
                 }
 
-                float totalArea = totalWidth * totalHeight;
+                var totalArea = totalWidth * totalHeight;
 
-                if (totalArea < bestTotalArea)
-                {
-                    bestTotalArea = totalArea;
-                    bestPositions = currentPositions.ToArray();
-                    new Vector2(totalWidth, totalHeight);
-                }
+                if (!(totalArea < bestTotalArea)) continue;
+                bestTotalArea = totalArea;
+                bestPositions = currentPositions.ToArray();
             }
 
             // Create final layout state with updated positions
             var finalGroupLayouts = new List<LayoutState.GroupLayout>();
 
-            for (int i = 0; i < groupLayouts.Count; i++)
+            for (var i = 0; i < groupLayouts.Count; i++)
             {
                 var originalGroupLayout = groupLayouts[i];
-                Vector2 groupPosition = bestPositions[i];
+                var groupPosition = bestPositions[i];
 
                 // Create new group layout with updated position
                 var updatedGroupLayout = new LayoutState.GroupLayout
@@ -195,18 +190,17 @@ namespace SceneConnections.Editor.Utils
                 };
 
                 // Update node positions relative to new group position
-                foreach (var originalNodeLayout in originalGroupLayout.NodeLayouts)
+                foreach (var updatedNodeLayout in originalGroupLayout.NodeLayouts.Select(originalNodeLayout => new LayoutState.NodeLayout
+                         {
+                             Node = originalNodeLayout.Node,
+                             FinalRect = new Rect(
+                                 groupPosition.x + originalNodeLayout.FinalRect.x,
+                                 groupPosition.y + originalNodeLayout.FinalRect.y,
+                                 originalNodeLayout.FinalRect.width,
+                                 originalNodeLayout.FinalRect.height
+                             )
+                         }))
                 {
-                    var updatedNodeLayout = new LayoutState.NodeLayout
-                    {
-                        Node = originalNodeLayout.Node,
-                        FinalRect = new Rect(
-                            groupPosition.x + originalNodeLayout.FinalRect.x,
-                            groupPosition.y + originalNodeLayout.FinalRect.y,
-                            originalNodeLayout.FinalRect.width,
-                            originalNodeLayout.FinalRect.height
-                        )
-                    };
                     updatedGroupLayout.NodeLayouts.Add(updatedNodeLayout);
                 }
 
@@ -221,13 +215,13 @@ namespace SceneConnections.Editor.Utils
 
         private static Vector2[] CalculateOptimalNodePositions(List<GameObjectNode> nodes, float padding, float[] rowHeights, float[] colWidths)
         {
-            Vector2[] positions = new Vector2[nodes.Count];
+            var positions = new Vector2[nodes.Count];
 
             // Calculate positions in a grid
-            for (int i = 0; i < nodes.Count; i++)
+            for (var i = 0; i < nodes.Count; i++)
             {
-                int row = i / colWidths.Length;
-                int col = i % colWidths.Length;
+                var row = i / colWidths.Length;
+                var col = i % colWidths.Length;
 
                 GameObjectNode node = nodes[i];
                 Rect rect = node.contentRect;
@@ -238,18 +232,16 @@ namespace SceneConnections.Editor.Utils
             }
 
             // Calculate final positions
-            float y = padding;
-            for (int row = 0; row < rowHeights.Length; row++)
+            var y = padding;
+            for (var row = 0; row < rowHeights.Length; row++)
             {
-                float x = padding;
-                for (int col = 0; col < colWidths.Length; col++)
+                var x = padding;
+                for (var col = 0; col < colWidths.Length; col++)
                 {
-                    int index = row * colWidths.Length + col;
-                    if (index < nodes.Count)
-                    {
-                        positions[index] = new Vector2(x, y);
-                        x += colWidths[col] + padding;
-                    }
+                    var index = row * colWidths.Length + col;
+                    if (index >= nodes.Count) continue;
+                    positions[index] = new Vector2(x, y);
+                    x += colWidths[col] + padding;
                 }
 
                 y += rowHeights[row] + padding;

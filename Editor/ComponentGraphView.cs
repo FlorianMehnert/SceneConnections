@@ -25,7 +25,6 @@ namespace SceneConnections.Editor
 
         private readonly Dictionary<GameObject, Group> _gameObjectGroups = new();
         private readonly Dictionary<string, Node> _scripts = new();
-        private TextField _pathTextField;
 
         private int _currentDebuggedRect;
 
@@ -37,6 +36,7 @@ namespace SceneConnections.Editor
 
         public ComponentGraphView(Color defaultNodeColor, Color highlightColor)
         {
+            Nodes = new List<Node>();
             HighlightColor = highlightColor;
             DefaultNodeColor = defaultNodeColor;
             SetupZoom(.01f, 5.0f);
@@ -551,15 +551,15 @@ namespace SceneConnections.Editor
 
         public string PathTextFieldValue
         {
-            get => _pathTextField.value;
-            set => _pathTextField.value = value;
+            get => PathTextField.value;
+            set => PathTextField.value = value;
         }
 
         public TextField PathTextField { get; set; }
 
         public TextField SearchField { get; set; }
         public StyleColor HighlightColor { get; }
-        public List<Node> Nodes { get; private set; }
+        public List<Node> Nodes { get; set; }
         public StyleColor DefaultNodeColor { get; }
 
         public bool IsBusy { get; set; }
