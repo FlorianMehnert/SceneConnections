@@ -24,9 +24,7 @@ namespace SceneConnections.Editor
         private readonly Dictionary<Component, Node> _componentNodes = new();
 
         private readonly Dictionary<GameObject, Group> _gameObjectGroups = new();
-        private readonly NodeGraphBuilder _nodeGraphBuilder;
         private readonly Dictionary<string, Node> _scripts = new();
-        private readonly InterfaceBuilder _interfaceBuilder;
         private TextField _pathTextField;
 
         private int _currentDebuggedRect;
@@ -51,102 +49,12 @@ namespace SceneConnections.Editor
             style.flexGrow = 1;
             style.flexShrink = 1;
             RegisterCallback<KeyDownEvent>(OnKeyDownEvent);
-
-            _nodeGraphBuilder = new NodeGraphBuilder(this);
-            _nodeGraphBuilder.SetupProgressBar();
-            _interfaceBuilder = new InterfaceBuilder(this);
-            SetupUI();
-            _interfaceBuilder.CreateSearchBar();
+            NodeGraphBuilder = new NodeGraphBuilder(this);
+            NodeGraphBuilder.SetupProgressBar();
+            var interfaceBuilder = new InterfaceBuilder(this);
+            interfaceBuilder.SetupUI();
+            interfaceBuilder.CreateSearchBar();
         }
-
-
-        private void SetupUI()
-        {
-            var mainContainer = new VisualElement
-            {
-                style =
-                {
-                    flexDirection = FlexDirection.Row,
-                    flexGrow = 1
-                }
-            };
-            var leftContainer = new VisualElement
-            {
-                style =
-                {
-                    flexDirection = FlexDirection.Column,
-                    flexGrow = 1
-                }
-            };
-            var minimap = new NavigableMinimap(this);
-            minimap.SetPosition(new Rect(3, 55, 212, 100));
-            minimap.anchored = true;
-            DrawToolbar(leftContainer);
-            mainContainer.Add(leftContainer);
-            Add(mainContainer);
-            Add(minimap);
-        }
-
-        private void DrawToolbar(VisualElement parentElement)
-        {
-            var toolbar = new IMGUIContainer(() =>
-            {
-                EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-
-                GUI.enabled = !_nodeGraphBuilder.GetIsProcessing();
-                EditorGUI.BeginChangeCheck();
-                _nodeGraphBuilder.AmountOfNodes = EditorGUILayout.IntSlider("Maximal Amount of Nodes",
-                    _nodeGraphBuilder.AmountOfNodes, 1, 10000);
-                _nodeGraphBuilder.BatchSize = EditorGUILayout.IntSlider("Batch Size", _nodeGraphBuilder.BatchSize, 1,
-                    _nodeGraphBuilder.AmountOfNodes);
-
-                if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(60)))
-                {
-                    DeleteElements(graphElements.ToList());
-                    _nodeGraphBuilder.InitGraphAsync();
-                }
-
-                if (_nodeGraphBuilder.PerformanceMetrics.Count > 0 &&
-                    GUILayout.Button("Export Data", EditorStyles.toolbarButton, GUILayout.Width(80)))
-                {
-                    _nodeGraphBuilder.ExportPerformanceData();
-                }
-
-                GUI.enabled = true;
-                EditorGUILayout.EndHorizontal();
-            });
-
-            toolbar.style.flexGrow = 1;
-            parentElement.Add(toolbar);
-
-            // Add additional UI elements below the IMGUI toolbar
-            var uiElementsToolbar = new VisualElement
-            {
-                style =
-                {
-                    flexDirection = FlexDirection.Row,
-                    justifyContent = Justify.SpaceBetween,
-                    paddingTop = 5
-                }
-            };
-
-            _pathTextField = new TextField("Path:")
-            {
-                isReadOnly = true,
-                style =
-                {
-                    flexGrow = 1
-                }
-            };
-
-            var selectPathButton = new Button(_interfaceBuilder.OpenPathDialog) { text = "Choose Path" };
-
-            uiElementsToolbar.Add(_pathTextField);
-            uiElementsToolbar.Add(selectPathButton);
-
-            parentElement.Add(uiElementsToolbar);
-        }
-
 
         /// <summary>
         /// Handle KeyDown presses - shortcut handling
@@ -165,7 +73,7 @@ namespace SceneConnections.Editor
                     evt.StopPropagation();
                     break;
                 case true when evt.keyCode == KeyCode.C:
-                    _nodeGraphBuilder.BuildGraph();
+                    NodeGraphBuilder.BuildGraph();
                     evt.StopPropagation();
                     break;
                 case true when evt.keyCode == KeyCode.I:
@@ -641,15 +549,22 @@ namespace SceneConnections.Editor
             _drawType = drawType;
         }
 
-        public string TextFieldValue
+        public string PathTextFieldValue
         {
             get => _pathTextField.value;
             set => _pathTextField.value = value;
         }
 
+        public TextField PathTextField { get; set; }
+
         public TextField SearchField { get; set; }
         public StyleColor HighlightColor { get; }
         public List<Node> Nodes { get; private set; }
         public StyleColor DefaultNodeColor { get; }
+
+        public bool IsBusy { get; set; }
+
+        public List<GraphElement> GraphElements => graphElements.ToList();
+        public NodeGraphBuilder NodeGraphBuilder { get; set; }
     }
 }

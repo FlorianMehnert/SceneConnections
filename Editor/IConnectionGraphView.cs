@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using SceneConnections.Editor.Utils;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine.UIElements;
 
@@ -14,6 +15,11 @@ namespace SceneConnections.Editor
         }
 
         public void Add(VisualElement element)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public void DeleteElements(List<GraphElement> gvGraphElements)
         {
             throw new System.NotImplementedException();
         }
@@ -78,7 +84,13 @@ namespace SceneConnections.Editor
         List<Node> Nodes { get; }
         StyleColor DefaultNodeColor { get; }
 
-        string TextFieldValue { get; set; }
+        string PathTextFieldValue { get; set; }
+        public TextField PathTextField { get; set; }
         TextField SearchField { get; set; }
+
+        public bool IsBusy { get; set; }
+        public List<GraphElement> GraphElements { get; }
+        
+        public NodeGraphBuilder NodeGraphBuilder { get; }
     }
 }

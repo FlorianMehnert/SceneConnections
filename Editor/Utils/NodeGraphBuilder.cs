@@ -16,22 +16,20 @@ namespace SceneConnections.Editor.Utils
     {
         public int AmountOfNodes = 10000;
         public int BatchSize = 2500;
-        private bool _isProcessing;
         private float _progress;
 
         // Progress UI elements
         private bool _showProgressBar;
-        private readonly GraphView _graphView;
+        private readonly IConnectionGraphView _gv;
         public readonly List<PerformanceMetrics> PerformanceMetrics = new();
         private readonly Stopwatch _totalStopwatch = new();
         private IMGUIContainer _progressBar;
         private readonly List<Node> _nodes;
 
-        public NodeGraphBuilder(GraphView graphView)
+        public NodeGraphBuilder(IConnectionGraphView gv)
         {
-            _graphView = graphView;
+            _gv = gv;
             _nodes = new List<Node>();
-            _isProcessing = false;
         }
         
         public void SetupProgressBar()
@@ -55,7 +53,7 @@ namespace SceneConnections.Editor.Utils
                 }
             });
 
-            _graphView.Add(_progressBar);
+            _gv.Add(_progressBar);
             _progressBar.style.position = Position.Absolute;
             _progressBar.style.left = 0;
             _progressBar.style.right = 0;
@@ -63,15 +61,15 @@ namespace SceneConnections.Editor.Utils
         
         public void BuildGraph()
         {
-            if (_isProcessing) return;
-            _graphView.DeleteElements(_graphView.graphElements.ToList());
+            if (_gv.IsBusy) return;
+            ((GraphView) _gv).DeleteElements(_gv.GraphElements.ToList());
             InitGraphAsync();
         }
         
         public async void InitGraphAsync()
         {
-            if (_isProcessing) return;
-            _isProcessing = true;
+            if (_gv.IsBusy) return;
+            _gv.IsBusy = true;
             _showProgressBar = true;
             _progress = 0;
 
@@ -108,7 +106,7 @@ namespace SceneConnections.Editor.Utils
                 // Add batch of nodes to graph
                 for (var i = 0; i < count; i++)
                 {
-                    _graphView.AddElement(nodesToAdd[start + i]);
+                    _gv.Add(nodesToAdd[start + i]);
                 }
 
                 batchStopwatch.Stop();
@@ -132,7 +130,7 @@ namespace SceneConnections.Editor.Utils
             _totalStopwatch.Stop();
             ExportPerformanceData();
 
-            _isProcessing = false;
+            _gv.IsBusy = false;
             _showProgressBar = false;
             _progressBar?.MarkDirtyRepaint();
 
@@ -185,11 +183,6 @@ namespace SceneConnections.Editor.Utils
             {
                 Debug.LogError($"Error exporting performance data: {e.Message}");
             }
-        }
-
-        public bool GetIsProcessing()
-        {
-            return _isProcessing;
         }
     }
 }

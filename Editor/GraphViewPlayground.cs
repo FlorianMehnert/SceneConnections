@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using SceneConnections.Editor.Utils;
 using UnityEditor;
 using UnityEditor.Experimental.GraphView;
@@ -6,17 +7,21 @@ using UnityEngine.UIElements;
 
 namespace SceneConnections.Editor
 {
-    public class GraphViewPlayground : GraphView
+    public class GraphViewPlayground : GraphView, IConnectionGraphView
     {
         private readonly EdgeBuilder _edgeConnector;
 
-        private readonly NodeGraphBuilder _nodeGraphBuilder;
         private int _amountOfNodes;
         private int _batchSize;
         private TextField _pathTextField;
 
-        public GraphViewPlayground()
+        public GraphViewPlayground(StyleColor highlightColor, StyleColor defaultNodeColor )
         {
+            HighlightColor = highlightColor;
+            Nodes = new List<Node>();
+            DefaultNodeColor = defaultNodeColor;
+            GraphElements = graphElements.ToList();
+            NodeGraphBuilder = new NodeGraphBuilder(this);
             SetupZoom(.01f, 5.0f);
             this.AddManipulator(new ContentDragger());
             this.AddManipulator(new SelectionDragger());
@@ -29,8 +34,7 @@ namespace SceneConnections.Editor
             style.flexShrink = 1;
 
             DrawToolbar();
-            _nodeGraphBuilder = new NodeGraphBuilder(this);
-            _nodeGraphBuilder.SetupProgressBar();
+            NodeGraphBuilder.SetupProgressBar();
 
             _edgeConnector = new EdgeBuilder(this);
             _edgeConnector.SetupProgressBar();
@@ -44,7 +48,7 @@ namespace SceneConnections.Editor
             switch (evt.ctrlKey)
             {
                 case true when evt.keyCode == KeyCode.R:
-                    _nodeGraphBuilder.BuildGraph();
+                    NodeGraphBuilder.BuildGraph();
                     break;
                 case true when evt.keyCode == KeyCode.E:
                     _edgeConnector.GenerateRandomEdgesAsync();
@@ -61,15 +65,15 @@ namespace SceneConnections.Editor
                 EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
 
                 // Disable controls while processing
-                GUI.enabled = !_nodeGraphBuilder.GetIsProcessing();
+                GUI.enabled = !IsBusy;
 
                 // Slider for Max Nodes
-                _nodeGraphBuilder.AmountOfNodes =
-                    EditorGUILayout.IntSlider("Max Nodes", _nodeGraphBuilder.AmountOfNodes, 1, 10000);
+                NodeGraphBuilder.AmountOfNodes =
+                    EditorGUILayout.IntSlider("Max Nodes", NodeGraphBuilder.AmountOfNodes, 1, 10000);
 
                 // Slider for Batch Size
-                _nodeGraphBuilder.BatchSize = EditorGUILayout.IntSlider("Batch Size", _nodeGraphBuilder.BatchSize, 1,
-                    _nodeGraphBuilder.AmountOfNodes);
+                NodeGraphBuilder.BatchSize = EditorGUILayout.IntSlider("Batch Size", NodeGraphBuilder.BatchSize, 1,
+                    NodeGraphBuilder.AmountOfNodes);
 
                 // Slider for Edge Count
                 _edgeConnector.EdgeCount = EditorGUILayout.IntSlider("Edge Count", _edgeConnector.EdgeCount, 1, 100000);
@@ -78,19 +82,21 @@ namespace SceneConnections.Editor
                 if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(60)))
                 {
                     DeleteElements(graphElements.ToList());
-                    _nodeGraphBuilder.InitGraphAsync();
+                    NodeGraphBuilder.InitGraphAsync();
                 }
 
-                if (_nodeGraphBuilder.PerformanceMetrics.Count > 0 &&
+                if (NodeGraphBuilder.PerformanceMetrics.Count > 0 &&
                     GUILayout.Button("Export Data", EditorStyles.toolbarButton, GUILayout.Width(80)))
                 {
-                    _nodeGraphBuilder.ExportPerformanceData();
+                    NodeGraphBuilder.ExportPerformanceData();
                 }
 
                 GUI.enabled = true;
 
                 EditorGUILayout.EndHorizontal();
             });
+
+            
 
             toolbar.style.position = Position.Absolute;
             toolbar.style.left = 0;
@@ -128,6 +134,11 @@ namespace SceneConnections.Editor
             Add(uiElementsToolbar);
         }
 
+        public void DeleteElements(List<GraphElement> gvGraphElements)
+        {
+            base.DeleteElements(graphElements.ToList());
+        }
+
         private void OpenPathDialog()
         {
             // Open the folder selection dialog and store the selected path
@@ -147,6 +158,16 @@ namespace SceneConnections.Editor
                 node.RefreshPorts();
             }
         }
+
+        public StyleColor HighlightColor { get; }
+        public List<Node> Nodes { get; }
+        public StyleColor DefaultNodeColor { get; }
+        public string PathTextFieldValue { get; set; }
+        public TextField PathTextField { get; set; }
+        public TextField SearchField { get; set; }
+        public bool IsBusy { get; set; }
+        public List<GraphElement> GraphElements { get; }
+        public NodeGraphBuilder NodeGraphBuilder { get; }
     }
 
     public class GraphViewPlaygroundViewer : EditorWindow
@@ -156,7 +177,11 @@ namespace SceneConnections.Editor
 
         private void OnEnable()
         {
-            _graphView = new GraphViewPlayground();
+            // StyleColor highlightColor, List<Node> nodes, StyleColor defaultNodeColor, List<GraphElement> graphElements, NodeGraphBuilder nodeGraphBuilder
+            var hightlightColor = new Color(1f, 0.8f, 0.2f, 1f);
+            var defaultColor = new Color(0.2f, 0.2f, 0.2f, .5f);
+
+            _graphView = new GraphViewPlayground(hightlightColor, defaultColor);
             rootVisualElement.Add(_graphView);
         }
 
