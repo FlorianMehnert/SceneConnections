@@ -91,7 +91,8 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
 
         private static void CollectInheritanceReferences(string content, HashSet<string> references)
         {
-            var inheritanceRegex = new Regex(@"(?:class|struct)\s+([A-Za-z0-9_]+)\s*(?::\s*([A-Za-z0-9_,.]+))?", RegexOptions.Compiled);
+            // Collect inheritance and interface references
+            var inheritanceRegex = new Regex(@"(?:class|struct|interface)\s+([A-Za-z0-9_]+)\s*(?::\s*([A-Za-z0-9_,.]+))?", RegexOptions.Compiled);
             foreach (Match match in inheritanceRegex.Matches(content))
             {
                 var baseTypes = match.Groups[2].Value.Split(',').Select(t => t.Trim());
@@ -100,6 +101,34 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
                     if (!string.IsNullOrEmpty(baseType))
                     {
                         ProcessTypeReference(baseType, references);
+                    }
+                }
+            }
+
+            // Collect composite types from method parameters and return types
+            var methodRegex = new Regex(
+                @"(?:private|public|protected|internal)\s+" +
+                @"(?:static\s+)?" +
+                @"(?:(?:void)|(?:[A-Za-z0-9_.<>]+(?:\.[A-Za-z0-9_]+)*(?:<[^>]+>)?))?" +
+                @"\s+\w+\s*\(" +
+                @"([^\)]*)\)",
+                RegexOptions.Compiled
+            );
+
+            foreach (Match match in methodRegex.Matches(content))
+            {
+                var returnType = match.Groups[2].Value;
+                if (!string.IsNullOrEmpty(returnType))
+                {
+                    ProcessTypeReference(returnType, references);
+                }
+
+                var parameterTypes = Regex.Matches(match.Groups[1].Value, @"[A-Za-z0-9_.<>]+(?:\.[A-Za-z0-9_]+)*(?:<[^>]+>)?");
+                foreach (Match parameterTypeMatch in parameterTypes)
+                {
+                    if (!string.IsNullOrEmpty(parameterTypeMatch.Value))
+                    {
+                        ProcessTypeReference(parameterTypeMatch.Value, references);
                     }
                 }
             }
@@ -119,28 +148,56 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
         }
 
 
+        private static void CollectFieldReferences(string content, HashSet<string> references)
+        {
+            // Updated to collect composite types
+            var fieldRegex = new Regex(
+                @"(?:private|public|protected|internal)\s+" +
+                @"(?:readonly\s+)?" +
+                @"(?:static\s+)?" +
+                @"([A-Za-z0-9_.<>]+(?:\.[A-Za-z0-9_]+)*)" +
+                "(?:<[^>]+>)?" +
+                @"\s+\w+\s*" +
+                "(?:[;=]|{[^}]*})",
+                RegexOptions.Compiled
+            );
+
+            foreach (Match match in fieldRegex.Matches(content))
+            {
+                var fullType = match.Groups[1].Value;
+                ProcessTypeReference(fullType, references);
+
+                // If there are generic parameters, extract and process them too
+                var genericParamsMatch = Regex.Match(match.Value, "<([^>]+)>");
+                if (!genericParamsMatch.Success) continue;
+                foreach (var genericType in genericParamsMatch.Groups[1].Value.Split(','))
+                {
+                    ProcessTypeReference(genericType.Trim(), references);
+                }
+            }
+        }
+
         private static void CollectMethodReferences(string content, HashSet<string> references)
         {
+            // Updated to collect composite types
             var methodRegex = new Regex(
-                @"(?:private|public|protected|internal)\s+" + // Access modifier
-                @"(?:static\s+)?" + // Optional static
-                @"([A-Za-z0-9_.<>]+(?:\.[A-Za-z0-9_]+)*(?:<[^>]+>)?)?" + // Return type (group 1)
-                @"\s+\w+\s*\(" + // Method name and open parenthesis
-                @"([^\)]*)\)", // Method parameters (group 2)
+                @"(?:private|public|protected|internal)\s+" +
+                @"(?:static\s+)?" +
+                @"(?:(?:void)|(?:[A-Za-z0-9_.<>]+(?:\.[A-Za-z0-9_]+)*(?:<[^>]+>)?))?" +
+                @"\s+\w+\s*\(" +
+                @"([^\)]*)\)",
                 RegexOptions.Compiled
             );
 
             foreach (Match match in methodRegex.Matches(content))
             {
-                // Capture the return type from group 1
-                var returnType = match.Groups[1].Value;
+                var returnType = match.Groups[2].Value;
                 if (!string.IsNullOrEmpty(returnType))
                 {
                     ProcessTypeReference(returnType, references);
                 }
 
-                // Capture and process each parameter type
-                var parameterTypes = Regex.Matches(match.Groups[2].Value, @"[A-Za-z0-9_.<>]+(?:\.[A-Za-z0-9_]+)*(?:<[^>]+>)?");
+                var parameterTypes = Regex.Matches(match.Groups[1].Value, @"[A-Za-z0-9_.<>]+(?:\.[A-Za-z0-9_]+)*(?:<[^>]+>)?");
                 foreach (Match parameterTypeMatch in parameterTypes)
                 {
                     if (!string.IsNullOrEmpty(parameterTypeMatch.Value))
@@ -157,35 +214,6 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
             foreach (Match match in usingRegex.Matches(content))
             {
                 UsingStatements.Value.Add(match.Groups[1].Value.Trim());
-            }
-        }
-
-        private static void CollectFieldReferences(string content, HashSet<string> references)
-        {
-            // Updated regex to better handle various field declarations
-            var fieldRegex = new Regex(
-                @"(?:private|public|protected|internal)\s+" + // Access modifier
-                @"(?:readonly\s+)?" + // Optional readonly
-                @"(?:static\s+)?" + // Optional static
-                @"([A-Za-z0-9_.<>]+(?:\.[A-Za-z0-9_]+)*)" + // Type name with possible nested types
-                "(?:<[^>]+>)?" + // Optional generic parameters
-                @"\s+\w+\s*" + // Field name
-                "(?:[;=]|{[^}]*})", // Ending with ; or = or { ... }
-                RegexOptions.Compiled
-            );
-
-            foreach (Match match in fieldRegex.Matches(content))
-            {
-                var fullType = match.Groups[1].Value;
-                ProcessTypeReference(fullType, references);
-
-                // If there are generic parameters, extract and process them too
-                var genericParamsMatch = Regex.Match(match.Value, "<([^>]+)>");
-                if (!genericParamsMatch.Success) continue;
-                foreach (var genericType in genericParamsMatch.Groups[1].Value.Split(','))
-                {
-                    ProcessTypeReference(genericType.Trim(), references);
-                }
             }
         }
 
