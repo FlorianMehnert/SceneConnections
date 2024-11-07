@@ -23,9 +23,6 @@ namespace SceneConnections.Editor
             GraphElements = graphElements.ToList();
             NodeGraphBuilder = new NodeGraphBuilder(this);
             SetupZoom(.01f, 5.0f);
-            this.AddManipulator(new ContentDragger());
-            this.AddManipulator(new SelectionDragger());
-            this.AddManipulator(new RectangleSelector());
 
             var gridBackground = new GridBackground();
             Insert(0, gridBackground);
@@ -39,6 +36,10 @@ namespace SceneConnections.Editor
             _edgeConnector = new EdgeBuilder(this);
             _edgeConnector.SetupProgressBar();
             _edgeConnector.AddPorts();
+            
+            this.AddManipulator(new ContentDragger());
+            this.AddManipulator(new SelectionDragger());
+            this.AddManipulator(new RectangleSelector());
 
             RegisterCallback<KeyDownEvent>(OnKeyDownEvent);
         }
@@ -64,7 +65,6 @@ namespace SceneConnections.Editor
             {
                 EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
 
-                // Disable controls while processing
                 GUI.enabled = !IsBusy;
 
                 // Slider for Max Nodes

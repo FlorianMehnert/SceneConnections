@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -8,13 +9,13 @@ using UnityEngine.SceneManagement;
 
 namespace SceneConnections.Editor
 {
-    public class RectangleWindow : UnityEditor.EditorWindow
+    public class RectangleWindow : EditorWindow
     {
         private Vector2 _scrollPosition;
         private float _zoomLevel = 1f;
         private Vector2 _graphOffset;
         private readonly Dictionary<Component, NodeInfo> _nodeInfos = new();
-        private readonly Dictionary<System.Type, GroupInfo> _groupInfos = new();
+        private readonly Dictionary<Type, GroupInfo> _groupInfos = new();
         private Component _selectedNode;
         private bool _includeInactiveObjects = true;
         private bool _includeBuiltInComponents = true;
@@ -55,14 +56,12 @@ namespace SceneConnections.Editor
         private void OnEditorUpdate()
         {
             // Check if any relevant changes have occurred in the scene
-            if (CheckForSceneChanges())
-            {
-                _graphNeedsUpdate = true;
-                Repaint();
-            }
+            if (!CheckForSceneChanges()) return;
+            _graphNeedsUpdate = true;
+            Repaint();
         }
 
-        private bool CheckForSceneChanges()
+        private static bool CheckForSceneChanges()
         {
             // Implement logic to check for relevant changes in the scene
             // For example, check if any GameObjects or Components have been added/removed/modified
@@ -80,9 +79,9 @@ namespace SceneConnections.Editor
                 _graphNeedsUpdate = false;
             }
 
-            bool newIncludeInactive = EditorGUILayout.ToggleLeft("Include Inactive", _includeInactiveObjects);
-            bool newIncludeBuiltIn = EditorGUILayout.ToggleLeft("Include Built-in", _includeBuiltInComponents);
-            bool newShowEqualComponents = EditorGUILayout.ToggleLeft("Include Equal Components", _showEqualComponents);
+            var newIncludeInactive = EditorGUILayout.ToggleLeft("Include Inactive", _includeInactiveObjects);
+            var newIncludeBuiltIn = EditorGUILayout.ToggleLeft("Include Built-in", _includeBuiltInComponents);
+            var newShowEqualComponents = EditorGUILayout.ToggleLeft("Include Equal Components", _showEqualComponents);
 
             if (newIncludeInactive != _includeInactiveObjects ||
                 newIncludeBuiltIn != _includeBuiltInComponents ||
@@ -118,26 +117,17 @@ namespace SceneConnections.Editor
 
         private Component GetNodeAtPosition(Vector2 mousePosition)
         {
-            foreach (var kvp in _nodeInfos)
-            {
-                Rect scaledRect = ScaleRect(kvp.Value.Position);
-                if (scaledRect.Contains(mousePosition))
-                {
-                    return kvp.Key;
-                }
-            }
-
-            return null;
+            return (from kvp in _nodeInfos let scaledRect = ScaleRect(kvp.Value.Position) where scaledRect.Contains(mousePosition) select kvp.Key).FirstOrDefault();
         }
 
         private void HandleEvents()
         {
-            Event e = Event.current;
+            var e = Event.current;
 
             switch (e.type)
             {
                 case EventType.ScrollWheel:
-                    float prevZoom = _zoomLevel;
+                    var prevZoom = _zoomLevel;
                     _zoomLevel = Mathf.Clamp(_zoomLevel - e.delta.y * 0.01f, 0.1f, 2f);
                     if (!Mathf.Approximately(prevZoom, _zoomLevel))
                     {
@@ -148,19 +138,25 @@ namespace SceneConnections.Editor
                     break;
 
                 case EventType.MouseDown:
-                    if (e.button == 2) // Middle mouse button for graph dragging
+                    switch (e.button)
                     {
-                        _isDragging = true;
-                        e.Use();
-                    }
-                    else if (e.button == 0) // Left mouse button for selecting/moving nodes
-                    {
-                        _draggedNode = GetNodeAtPosition(e.mousePosition);
-                        if (_draggedNode != null)
-                        {
-                            _dragOffset = e.mousePosition - ScaleRect(_nodeInfos[_draggedNode].Position).position;
-                            _selectedNode = _draggedNode;
+                        // Middle mouse button for graph dragging
+                        case 2:
+                            _isDragging = true;
                             e.Use();
+                            break;
+                        // Left mouse button for selecting/moving nodes
+                        case 0:
+                        {
+                            _draggedNode = GetNodeAtPosition(e.mousePosition);
+                            if (_draggedNode != null)
+                            {
+                                _dragOffset = e.mousePosition - ScaleRect(_nodeInfos[_draggedNode].Position).position;
+                                _selectedNode = _draggedNode;
+                                e.Use();
+                            }
+
+                            break;
                         }
                     }
 
@@ -183,35 +179,80 @@ namespace SceneConnections.Editor
                     break;
 
                 case EventType.MouseUp:
-                    if (e.button == 2) // Stop dragging graph
+                    switch (e.button)
                     {
-                        _isDragging = false;
-                        e.Use();
-                    }
-                    else if (e.button == 0) // Stop dragging node
-                    {
-                        _draggedNode = null;
-                        e.Use();
+                        // Stop dragging graph
+                        case 2:
+                            _isDragging = false;
+                            e.Use();
+                            break;
+                        // Stop dragging node
+                        case 0:
+                            _draggedNode = null;
+                            e.Use();
+                            break;
                     }
 
                     break;
+                case EventType.MouseMove:
+                    break;
+                case EventType.KeyDown:
+                    break;
+                case EventType.KeyUp:
+                    break;
+                case EventType.Repaint:
+                    break;
+                case EventType.Layout:
+                    break;
+                case EventType.DragUpdated:
+                    break;
+                case EventType.DragPerform:
+                    break;
+                case EventType.DragExited:
+                    break;
+                case EventType.Ignore:
+                    break;
+                case EventType.Used:
+                    break;
+                case EventType.ValidateCommand:
+                    break;
+                case EventType.ExecuteCommand:
+                    break;
+                case EventType.ContextClick:
+                    break;
+                case EventType.MouseEnterWindow:
+                    break;
+                case EventType.MouseLeaveWindow:
+                    break;
+                case EventType.TouchDown:
+                    break;
+                case EventType.TouchUp:
+                    break;
+                case EventType.TouchMove:
+                    break;
+                case EventType.TouchEnter:
+                    break;
+                case EventType.TouchLeave:
+                    break;
+                case EventType.TouchStationary:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
 
         private void DrawGraph()
         {
-            if (Event.current.type == EventType.Repaint)
+            if (Event.current.type != EventType.Repaint) return;
+            DrawConnections();
+            foreach (var groupKvp in _groupInfos)
             {
-                DrawConnections();
-                foreach (var groupKvp in _groupInfos)
-                {
-                    DrawGroup(groupKvp.Key, groupKvp.Value);
-                }
+                DrawGroup(groupKvp.Key, groupKvp.Value);
+            }
 
-                foreach (var kvp in _nodeInfos)
-                {
-                    DrawNode(kvp.Key, kvp.Value);
-                }
+            foreach (var kvp in _nodeInfos)
+            {
+                DrawNode(kvp.Key, kvp.Value);
             }
         }
 
@@ -227,11 +268,9 @@ namespace SceneConnections.Editor
         private static void GenerateGraphShortcut()
         {
             var window = GetWindow<RectangleWindow>();
-            if (window != null)
-            {
-                window.GenerateGraph();
-                window._graphNeedsUpdate = false;
-            }
+            if (window == null) return;
+            window.GenerateGraph();
+            window._graphNeedsUpdate = false;
         }
 
         // ReSharper disable Unity.PerformanceAnalysis
@@ -239,7 +278,7 @@ namespace SceneConnections.Editor
         {
             _nodeInfos.Clear();
             _groupInfos.Clear();
-            Component[] allComponents = _includeInactiveObjects
+            var allComponents = _includeInactiveObjects
                 ? Resources.FindObjectsOfTypeAll<Component>()
                 : FindObjectsByType<Component>(FindObjectsSortMode.InstanceID);
 
@@ -255,7 +294,7 @@ namespace SceneConnections.Editor
                         IsBuiltIn = isBuiltIn
                     };
 
-                    System.Type componentType = component.GetType();
+                    var componentType = component.GetType();
                     if (!_groupInfos.ContainsKey(componentType))
                     {
                         _groupInfos[componentType] = new GroupInfo
@@ -283,12 +322,12 @@ namespace SceneConnections.Editor
             float x = 20;
             float y = 20;
             float maxHeight = 0;
-            float maxWidth = position.width - 40; // Leave some margin
+            var maxWidth = position.width - 40; // Leave some margin
 
             foreach (var groupKvp in _groupInfos)
             {
-                GroupInfo groupInfo = groupKvp.Value;
-                Vector2 groupSize = CalculateGroupSize(groupInfo);
+                var groupInfo = groupKvp.Value;
+                var groupSize = CalculateGroupSize(groupInfo);
 
                 if (x + groupSize.x > maxWidth)
                 {
@@ -300,18 +339,16 @@ namespace SceneConnections.Editor
                 groupInfo.Position = new Rect(x, y, groupSize.x, groupSize.y);
 
                 // Position nodes within the group
-                float nodeX = x + 20;
-                float nodeY = y + 40; // Increased top padding
-                foreach (Component component in groupInfo.Components)
+                var nodeX = x + 20;
+                var nodeY = y + 40; // Increased top padding
+                foreach (var component in groupInfo.Components)
                 {
-                    Vector2 nodeSize = CalculateNodeSize(component);
+                    var nodeSize = CalculateNodeSize(component);
                     _nodeInfos[component].Position = new Rect(nodeX, nodeY, nodeSize.x, nodeSize.y);
                     nodeX += nodeSize.x + 20;
-                    if (nodeX + nodeSize.x > x + groupSize.x - 20)
-                    {
-                        nodeX = x + 20;
-                        nodeY += nodeSize.y + 20;
-                    }
+                    if (!(nodeX + nodeSize.x > x + groupSize.x - 20)) continue;
+                    nodeX = x + 20;
+                    nodeY += nodeSize.y + 20;
                 }
 
                 x += groupSize.x + 40; // Increased horizontal spacing between groups
@@ -319,7 +356,7 @@ namespace SceneConnections.Editor
             }
         }
 
-        private void DrawGroup(System.Type groupType, GroupInfo groupInfo)
+        private void DrawGroup(Type groupType, GroupInfo groupInfo)
         {
             var scaledRect = ScaleRect(groupInfo.Position);
 
@@ -329,7 +366,7 @@ namespace SceneConnections.Editor
             GUI.Box(scaledRect, "");
             GUI.color = Color.white;
 
-            GUIStyle style = new GUIStyle(GUI.skin.label)
+            var style = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.UpperCenter,
                 fontStyle = FontStyle.Bold
@@ -350,7 +387,7 @@ namespace SceneConnections.Editor
             GUI.Box(scaledRect, "");
             GUI.color = Color.white;
 
-            GUIStyle style = new GUIStyle(GUI.skin.label)
+            var style = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.UpperCenter,
                 fontStyle = FontStyle.Bold
@@ -362,16 +399,12 @@ namespace SceneConnections.Editor
             GUI.Label(new Rect(scaledRect.x, scaledRect.y + 25, scaledRect.width, 20), $"In: {info.Inputs.Count}, Out: {info.Outputs.Count}", style);
             GUI.Label(new Rect(scaledRect.x, scaledRect.y + 40, scaledRect.width, 20), component.gameObject.name, style);
 
-            if (scaledRect.Contains(Event.current.mousePosition))
-            {
-                if (Event.current.type == EventType.MouseDown && Event.current.button == 0)
-                {
-                    _selectedNode = component;
+            if (!scaledRect.Contains(Event.current.mousePosition)) return;
+            if (Event.current.type != EventType.MouseDown || Event.current.button != 0) return;
+            _selectedNode = component;
 
-                    // might be causing some lag
-                    Repaint();
-                }
-            }
+            // might be causing some lag
+            Repaint();
         }
 
         private Vector2 CalculateGroupSize(GroupInfo groupInfo)
@@ -411,10 +444,10 @@ namespace SceneConnections.Editor
         }
 
 
-        private bool IsBuiltInComponent(Component component)
+        private static bool IsBuiltInComponent(Component component)
         {
-            System.Type componentType = component.GetType();
-            string namespaceName = componentType.Namespace;
+            var componentType = component.GetType();
+            var namespaceName = componentType.Namespace;
 
             // Check if the component is from Unity's built-in namespaces
             if (!string.IsNullOrEmpty(namespaceName) &&
@@ -437,55 +470,45 @@ namespace SceneConnections.Editor
 
         private void AnalyzeConnections(Component component)
         {
-            FieldInfo[] fields = component.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            foreach (FieldInfo field in fields)
+            var fields = component.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            foreach (var field in fields)
             {
-                if (typeof(Component).IsAssignableFrom(field.FieldType))
-                {
-                    Component connectedComponent = field.GetValue(component) as Component;
-                    if (connectedComponent && _nodeInfos.TryGetValue(connectedComponent, out var info))
-                    {
-                        _nodeInfos[component].Outputs.Add(connectedComponent);
-                        info.Inputs.Add(component);
-                    }
-                }
+                if (!typeof(Component).IsAssignableFrom(field.FieldType)) continue;
+                var connectedComponent = field.GetValue(component) as Component;
+                if (!connectedComponent || !_nodeInfos.TryGetValue(connectedComponent, out var info)) continue;
+                _nodeInfos[component].Outputs.Add(connectedComponent);
+                info.Inputs.Add(component);
             }
 
             // Check for connections through GameObject
-            foreach (Component otherComponent in component.gameObject.GetComponents<Component>())
+            foreach (var otherComponent in component.gameObject.GetComponents<Component>())
             {
-                if (otherComponent != component && _nodeInfos.TryGetValue(otherComponent, out var info))
-                {
-                    _nodeInfos[component].Outputs.Add(otherComponent);
-                    info.Inputs.Add(component);
-                }
+                if (otherComponent == component || !_nodeInfos.TryGetValue(otherComponent, out var info)) continue;
+                _nodeInfos[component].Outputs.Add(otherComponent);
+                info.Inputs.Add(component);
             }
         }
 
         private void DrawConnections()
         {
-            foreach (var kvp in _nodeInfos)
+            foreach (var (component, info) in _nodeInfos)
             {
-                Component component = kvp.Key;
-                NodeInfo info = kvp.Value;
-                Rect startRect = ScaleRect(info.Position);
+                var startRect = ScaleRect(info.Position);
 
-                foreach (Component connectedComponent in info.Outputs)
+                foreach (var connectedComponent in info.Outputs)
                 {
-                    if (_nodeInfos.TryGetValue(connectedComponent, out NodeInfo connectedInfo))
+                    if (!_nodeInfos.TryGetValue(connectedComponent, out NodeInfo connectedInfo)) continue;
+                    var endRect = ScaleRect(connectedInfo.Position);
+                    if (connectedComponent.gameObject == component.gameObject)
                     {
-                        Rect endRect = ScaleRect(connectedInfo.Position);
-                        if (connectedComponent.gameObject == component.gameObject)
+                        if (_showEqualComponents)
                         {
-                            if (_showEqualComponents)
-                            {
-                                DrawConnectionLine(GetConnector(startRect, false), GetConnector(endRect, true), Color.green);
-                            }
+                            DrawConnectionLine(GetConnector(startRect, false), GetConnector(endRect, true), Color.green);
                         }
-                        else
-                        {
-                            DrawConnectionLine(GetConnector(startRect, false), GetConnector(endRect, true), Color.blue);
-                        }
+                    }
+                    else
+                    {
+                        DrawConnectionLine(GetConnector(startRect, false), GetConnector(endRect, true), Color.blue);
                     }
                 }
             }
@@ -497,7 +520,7 @@ namespace SceneConnections.Editor
         /// <param name="rect">rectangle for which to calculate connector positions</param>
         /// <param name="left">return left connector if <c>true</c> and right connector if <c>false</c></param>
         /// <returns></returns>
-        private Vector2 GetConnector(Rect rect, bool left)
+        private static Vector2 GetConnector(Rect rect, bool left)
         {
             return new Vector2(left ? rect.x : rect.x + rect.width, rect.center.y);
         }
@@ -508,7 +531,7 @@ namespace SceneConnections.Editor
         /// <param name="start">Vector2 defining the start of the connection</param>
         /// <param name="end">Vector2 defining the end of the connection</param>
         /// <param name="color">color of the connection</param>
-        private void DrawConnectionLine(Vector2 start, Vector2 end, Color color)
+        private static void DrawConnectionLine(Vector2 start, Vector2 end, Color color)
         {
             Handles.BeginGUI();
             Handles.color = color;
@@ -521,10 +544,10 @@ namespace SceneConnections.Editor
         /// </summary>
         /// <param name="component">mostly nodes should be inserted in here</param>
         /// <returns><c>Vector2</c> containing width and height of the component</returns>
-        private Vector2 CalculateNodeSize(Component component)
+        private static Vector2 CalculateNodeSize(Component component)
         {
-            float width = Mathf.Max(GUI.skin.box.CalcSize(new GUIContent(component.GetType().Name)).x + 20, 120);
-            float height = 75;
+            var width = Mathf.Max(GUI.skin.box.CalcSize(new GUIContent(component.GetType().Name)).x + 20, 120);
+            const float height = 75;
             return new Vector2(width, height);
         }
 

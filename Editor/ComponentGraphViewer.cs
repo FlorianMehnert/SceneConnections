@@ -8,13 +8,12 @@ namespace SceneConnections.Editor
     public class ComponentGraphViewer : EditorWindow
     {
         private ComponentGraphView _graphView;
-        private bool _isRefreshing;
 
         private void OnEnable()
         {
-            var hightlightColor = new Color(1f, 0.8f, 0.2f, 1f);
+            var highlightColor = new Color(1f, 0.8f, 0.2f, 1f);
             var defaultColor = new Color(0.2f, 0.2f, 0.2f, .5f);
-            _graphView = new ComponentGraphView(defaultColor, hightlightColor);
+            _graphView = new ComponentGraphView(defaultColor, highlightColor);
             rootVisualElement.Add(_graphView);
 
             var setComponentGraphDrawType = new DropdownField("Set Component Graph Draw Type")
@@ -27,13 +26,9 @@ namespace SceneConnections.Editor
 
             var refreshButton = new Button(() =>
                 {
-                    if (_isRefreshing) return;
-                    _isRefreshing = true;
                     EditorApplication.delayCall += () =>
                     {
                         _graphView.RefreshGraph();
-                        // Schedule a second layout pass after everything is initialized
-                        EditorApplication.delayCall += () => { _isRefreshing = false; };
                     };
                 })
                 { text = "Refresh Graph" };

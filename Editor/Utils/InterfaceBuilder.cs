@@ -43,8 +43,7 @@ namespace SceneConnections.Editor.Utils
                 EditorGUILayout.EndHorizontal();
             });
 
-            toolbar.style.flexGrow = 1;
-            parentElement.Add(toolbar);
+            _gv.Add(toolbar);
 
             // Add additional UI elements below the IMGUI toolbar
             var uiElementsToolbar = new VisualElement
@@ -97,8 +96,7 @@ namespace SceneConnections.Editor.Utils
             minimap.anchored = true;
             DrawToolbar(leftContainer);
             mainContainer.Add(leftContainer);
-            _gv.Add(mainContainer);
-            _gv.Add(minimap);
+            mainContainer.Add(minimap);
         }
 
         private void OpenPathDialog()
@@ -132,6 +130,7 @@ namespace SceneConnections.Editor.Utils
             }
             else
             {
+                Debug.Log("added null search bar");
                 parentElement.Add(_gv.SearchField);
             }
         }

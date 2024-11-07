@@ -298,6 +298,7 @@ namespace SceneConnections.Editor
 
             AddElement(node);
             _componentNodes[component] = node;
+            Nodes.Add(node);
 
             if (_gameObjectGroups.TryGetValue(component.gameObject, out var group))
             {
