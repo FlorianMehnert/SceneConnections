@@ -27,8 +27,6 @@ namespace SceneConnections.Editor
         private readonly Dictionary<string, Node> _scripts = new();
 
         private int _currentDebuggedRect;
-
-        private Constants.ComponentGraphDrawType _drawType = Constants.ComponentGraphDrawType.NodesAreGameObjects;
         private bool _needsLayout;
 
         private IConnectionGraphView _connectionGraphViewImplementation;
@@ -53,7 +51,11 @@ namespace SceneConnections.Editor
             NodeGraphBuilder.SetupProgressBar();
             var interfaceBuilder = new InterfaceBuilder(this);
             interfaceBuilder.SetupUI();
-            
+            PathTextFieldValue = "/home/florian/gamedev/my-own-platformer/Assets/SceneConnections/";
+            GraphDrawType = Constants.ComponentGraphDrawType.NodesAreScripts;
+            ReferenceInheritance = true;
+            ReferenceFields = true;
+            ReferenceMethods = true;
         }
 
         /// <summary>
@@ -69,7 +71,7 @@ namespace SceneConnections.Editor
                     evt.StopPropagation();
                     break;
                 case true when evt.keyCode == KeyCode.L:
-                    LayoutNodes(_drawType);
+                    LayoutNodes(GraphDrawType);
                     evt.StopPropagation();
                     break;
                 case true when evt.keyCode == KeyCode.C:
@@ -97,7 +99,7 @@ namespace SceneConnections.Editor
                 }
                 case true when evt.keyCode == KeyCode.T:
                 {
-                    switch (_drawType)
+                    switch (GraphDrawType)
                     {
                         case Constants.ComponentGraphDrawType.NodesAreComponents:
                         {
@@ -128,7 +130,7 @@ namespace SceneConnections.Editor
         public void RefreshGraph()
         {
             ClearGraph();
-            CreateGraph(_drawType);
+            CreateGraph(GraphDrawType);
 
             _needsLayout = true;
             EditorApplication.delayCall += PerformLayout;
@@ -141,7 +143,7 @@ namespace SceneConnections.Editor
         {
             if (!_needsLayout) return;
 
-            LayoutNodes(_drawType);
+            LayoutNodes(GraphDrawType);
             _needsLayout = false;
         }
 
@@ -150,6 +152,7 @@ namespace SceneConnections.Editor
             DeleteElements(graphElements.ToList());
             _componentNodes.Clear();
             _gameObjectGroups.Clear();
+            Nodes.Clear();
         }
 
         /// <summary>
@@ -199,10 +202,10 @@ namespace SceneConnections.Editor
                     // 4. update layout
                     // 5. group if needed
 
-                    Dictionary<string, List<string>> allReferences;
+                    Dictionary<string, ClassReferences> allReferences;
                     if (PathTextFieldValue != "")
                     {
-                        allReferences = ClassParser.GetAllClassReferencesParallel(PathTextFieldValue);
+                        allReferences = ClassParser.GetAllClassReferencesParallel(PathTextFieldValue, ReferenceInheritance, ReferenceFields, ReferenceMethods);
                     }
                     else
                     {
@@ -224,23 +227,9 @@ namespace SceneConnections.Editor
                         var sourceScriptName = reference.Key;
                         if (!_scripts.TryGetValue(sourceScriptName, out var sourceNode)) return;
 
-                        foreach (var className in reference.Value.Select(referencedScript =>
-                                     referencedScript.Contains(".")
-                                         ? referencedScript[
-                                             (referencedScript.LastIndexOf(".", StringComparison.Ordinal) + 1)..]
-                                         : referencedScript))
-                        {
-                            if (_scripts.TryGetValue(className, out var targetNode))
-                            {
-                                // Use dispatcher to create edge on main thread since Unity UI must be modified on main thread
-                                EditorApplication.delayCall += () => { CreateEdge(sourceNode, targetNode); };
-                            }
-                        }
+                        CreateReference(reference, sourceNode);
                     });
-
                     EditorApplication.delayCall += UpdateLayout;
-
-
                     break;
                 }
                 default:
@@ -249,6 +238,27 @@ namespace SceneConnections.Editor
 
             CreateEdges();
             LayoutNodes(representation);
+        }
+
+        /// <summary>
+        /// Helper for <see cref="CreateGraph"/>
+        /// </summary>
+        /// <param name="reference">key value pair containing the current string, ClassReference combination</param>
+        /// <param name="sourceNode">Node to which the edges will be connected to</param>
+        private void CreateReference(KeyValuePair<string, ClassReferences> reference, Node sourceNode)
+        {
+            foreach (var className in reference.Value.References.Select(referencedScript =>
+                         referencedScript.Contains(".")
+                             ? referencedScript[
+                                 (referencedScript.LastIndexOf(".", StringComparison.Ordinal) + 1)..]
+                             : referencedScript))
+            {
+                if (_scripts.TryGetValue(className, out var targetNode))
+                {
+                    // Use dispatcher to create edge on main thread since Unity UI must be modified on main thread
+                    EditorApplication.delayCall += () => { CreateEdge(sourceNode, targetNode); };
+                }
+            }
         }
 
         private void UpdateLayout()
@@ -495,8 +505,10 @@ namespace SceneConnections.Editor
                     break;
                 }
                 case Constants.ComponentGraphDrawType.NodesAreGameObjects:
+                    LayoutNodesUsingManager();
                     break;
                 case Constants.ComponentGraphDrawType.NodesAreScripts:
+                    LayoutNodesUsingManager();
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(representation), representation, null);
@@ -555,10 +567,7 @@ namespace SceneConnections.Editor
         }
 
 
-        public void SetComponentGraphDrawType(Constants.ComponentGraphDrawType drawType)
-        {
-            _drawType = drawType;
-        }
+        public Constants.ComponentGraphDrawType GraphDrawType { get; set; }
 
         public string PathTextFieldValue
         {
@@ -577,5 +586,9 @@ namespace SceneConnections.Editor
 
         public List<GraphElement> GraphElements => graphElements.ToList();
         public NodeGraphBuilder NodeGraphBuilder { get; set; }
+
+        public bool ReferenceInheritance { get; set; }
+        public bool ReferenceFields { get; set; }
+        public bool ReferenceMethods { get; set; }
     }
 }

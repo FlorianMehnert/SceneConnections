@@ -133,11 +133,6 @@ namespace SceneConnections.Editor
             Add(uiElementsToolbar);
         }
 
-        public void DeleteElements()
-        {
-            base.DeleteElements(graphElements.ToList());
-        }
-
         private void OpenPathDialog()
         {
             // Open the folder selection dialog and store the selected path
@@ -167,6 +162,9 @@ namespace SceneConnections.Editor
         public bool IsBusy { get; set; }
         public List<GraphElement> GraphElements { get; }
         public NodeGraphBuilder NodeGraphBuilder { get; }
+        public bool ReferenceInheritance { get; set; }
+        public bool ReferenceFields { get; set; }
+        public bool ReferenceMethods { get; set; }
     }
 
     public class GraphViewPlaygroundViewer : EditorWindow

@@ -15,29 +15,22 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
         private static readonly ThreadLocal<HashSet<string>> UsingStatements = new(() => new HashSet<string>());
 
         /// <summary>
-        /// Gets all Class References within a directory and below given as string <see cref="GetAllClassReferencesParallel(System.Collections.Generic.IEnumerable{string})"/>
+        /// Gets all Class References within a directory and below given as string <see cref="GetAllClassReferencesParallel(System.Collections.Generic.IEnumerable{string}, bool, bool, bool)"/>
         /// </summary>
         /// <param name="rootDirectory">String defining the path to the root directory</param>
+        /// <param name="includeInheritance">Include inheritance relationships</param>
+        /// <param name="includeFields">Include Field relationships</param>
+        /// <param name="includeMethods">Include Method relationships</param>
         /// <returns></returns>
-        public static Dictionary<string, List<string>> GetAllClassReferencesParallel(string rootDirectory)
+        public static Dictionary<string, ClassReferences> GetAllClassReferencesParallel(string rootDirectory, bool includeInheritance = true, bool includeFields = true, bool includeMethods = true)
         {
             var scriptPaths = GetScriptPathsInDirectory(rootDirectory);
-            return GetAllClassReferencesParallel(scriptPaths);
+            return GetAllClassReferencesParallel(scriptPaths, includeInheritance, includeFields, includeMethods);
         }
 
-        private static List<string> GetScriptPathsInDirectory(string rootDirectory)
+        public static Dictionary<string, ClassReferences> GetAllClassReferencesParallel(IEnumerable<string> scriptPaths, bool includeInheritance = true, bool includeFields = true, bool includeMethods = true)
         {
-            return rootDirectory == "" ? new List<string>() : Directory.GetFiles(rootDirectory, "*.cs", SearchOption.AllDirectories).ToList();
-        }
-
-        /// <summary>
-        /// Gets all Class References for given paths
-        /// </summary>
-        /// <param name="scriptPaths">List of Script paths to search in</param>
-        /// <returns></returns>
-        public static Dictionary<string, List<string>> GetAllClassReferencesParallel(IEnumerable<string> scriptPaths)
-        {
-            var resultDictionary = new ConcurrentDictionary<string, List<string>>();
+            var resultDictionary = new ConcurrentDictionary<string, ClassReferences>();
 
             Parallel.ForEach(
                 scriptPaths,
@@ -46,7 +39,7 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
                 {
                     try
                     {
-                        var references = GetClassFieldReferences(scriptPath);
+                        var references = GetClassReferences(scriptPath, includeInheritance, includeFields, includeMethods);
                         var scriptName = Path.GetFileNameWithoutExtension(scriptPath);
                         resultDictionary.TryAdd(scriptName, references);
                     }
@@ -57,14 +50,14 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
                 }
             );
 
-            return new Dictionary<string, List<string>>(resultDictionary);
+            return new Dictionary<string, ClassReferences>(resultDictionary);
         }
-        
-        
 
-        private static List<string> GetClassFieldReferences(string scriptPath)
+        private static ClassReferences GetClassReferences(string scriptPath, bool includeInheritance, bool includeFields, bool includeMethods)
         {
-            var references = new HashSet<string>();
+            var inheritanceReferences = new HashSet<string>();
+            var fieldReferences = new HashSet<string>();
+            var methodReferences = new HashSet<string>();
             UsingStatements.Value.Clear();
 
             string content;
@@ -76,11 +69,86 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
             // First collect using statements
             CollectUsingStatements(content);
 
-            // Then collect field references
-            CollectFieldReferences(content, references);
+            // Then collect references
+            if (includeInheritance)
+                CollectInheritanceReferences(content, inheritanceReferences);
+            if (includeFields)
+                CollectFieldReferences(content, fieldReferences);
+            if (includeMethods)
+                CollectMethodReferences(content, methodReferences);
 
-            FilterCommonTypes(references);
-            return references.ToList();
+            FilterCommonTypes(inheritanceReferences);
+            FilterCommonTypes(fieldReferences);
+            FilterCommonTypes(methodReferences);
+
+            return new ClassReferences
+            {
+                InheritanceReferences = inheritanceReferences.ToList(),
+                FieldReferences = fieldReferences.ToList(),
+                MethodReferences = methodReferences.ToList()
+            };
+        }
+
+        private static void CollectInheritanceReferences(string content, HashSet<string> references)
+        {
+            var inheritanceRegex = new Regex(@"(?:class|struct)\s+([A-Za-z0-9_]+)\s*(?::\s*([A-Za-z0-9_,.]+))?", RegexOptions.Compiled);
+            foreach (Match match in inheritanceRegex.Matches(content))
+            {
+                var baseTypes = match.Groups[2].Value.Split(',').Select(t => t.Trim());
+                foreach (var baseType in baseTypes)
+                {
+                    if (!string.IsNullOrEmpty(baseType))
+                    {
+                        ProcessTypeReference(baseType, references);
+                    }
+                }
+            }
+        }
+
+        private static List<string> GetScriptPathsInDirectory(string path)
+        {
+            var scriptPaths = new List<string>();
+            if (!Directory.Exists(path))
+            {
+                Console.WriteLine($"Directory does not exist: {path}");
+                return scriptPaths;
+            }
+
+            scriptPaths.AddRange(Directory.GetFiles(path, "*.cs", SearchOption.AllDirectories));
+            return scriptPaths;
+        }
+
+
+        private static void CollectMethodReferences(string content, HashSet<string> references)
+        {
+            var methodRegex = new Regex(
+                @"(?:private|public|protected|internal)\s+" + // Access modifier
+                @"(?:static\s+)?" + // Optional static
+                @"([A-Za-z0-9_.<>]+(?:\.[A-Za-z0-9_]+)*(?:<[^>]+>)?)?" + // Return type (group 1)
+                @"\s+\w+\s*\(" + // Method name and open parenthesis
+                @"([^\)]*)\)", // Method parameters (group 2)
+                RegexOptions.Compiled
+            );
+
+            foreach (Match match in methodRegex.Matches(content))
+            {
+                // Capture the return type from group 1
+                var returnType = match.Groups[1].Value;
+                if (!string.IsNullOrEmpty(returnType))
+                {
+                    ProcessTypeReference(returnType, references);
+                }
+
+                // Capture and process each parameter type
+                var parameterTypes = Regex.Matches(match.Groups[2].Value, @"[A-Za-z0-9_.<>]+(?:\.[A-Za-z0-9_]+)*(?:<[^>]+>)?");
+                foreach (Match parameterTypeMatch in parameterTypes)
+                {
+                    if (!string.IsNullOrEmpty(parameterTypeMatch.Value))
+                    {
+                        ProcessTypeReference(parameterTypeMatch.Value, references);
+                    }
+                }
+            }
         }
 
         private static void CollectUsingStatements(string content)
@@ -121,6 +189,7 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
             }
         }
 
+
         private static void ProcessTypeReference(string type, HashSet<string> references)
         {
             // Handle nested types (e.g., Constants.ComponentGraphDrawType)
@@ -133,7 +202,6 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
                 }
             }
 
-            // Add the full type as well
             AddReference(type, references);
         }
 

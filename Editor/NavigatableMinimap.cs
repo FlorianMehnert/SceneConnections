@@ -12,6 +12,8 @@ namespace SceneConnections.Editor
         private bool _isDragging;
         private float _scaleX;
         private float _scaleY;
+        private bool _isMinimized;
+        private bool _isVisible = true;
 
         public NavigableMinimap(GraphView graphView)
         {
@@ -23,7 +25,41 @@ namespace SceneConnections.Editor
 
             // Calculate initial scale factors
             UpdateScaleFactors();
+            RegisterCallback<ContextualMenuPopulateEvent>(OnContextMenuPopulate);
         }
+
+        private void FoldMinimap()
+        {
+            _isMinimized = true;
+            style.width = 50;   // Shrink the minimap width
+            style.height = 50;  // Shrink the minimap height
+        }
+
+        private void UnfoldMinimap()
+        {
+            _isMinimized = false;
+            style.width = StyleKeyword.Auto;   // Restore original size
+            style.height = StyleKeyword.Auto;
+        }
+
+        private void ShowMinimap()
+        {
+            _isVisible = true;
+            style.display = DisplayStyle.Flex;
+        }
+
+        private void HideMinimap()
+        {
+            _isVisible = false;
+            style.display = DisplayStyle.None;
+        }
+
+        private void RemoveMinimap()
+        {
+            // Remove the minimap completely from the parent container
+            parent?.Remove(this);
+        }
+
 
         private void SetupCallbacks()
         {
@@ -64,6 +100,23 @@ namespace SceneConnections.Editor
                 _parentGraphView.viewTransform.position = _viewStartPosition - scaledDelta;
                 evt.StopPropagation();
             });
+        }
+        
+        private void OnContextMenuPopulate(ContextualMenuPopulateEvent evt)
+        {
+            evt.menu.AppendAction("Show Minimap", _ => ShowMinimap(), _isVisible ? DropdownMenuAction.Status.Disabled : DropdownMenuAction.Status.Normal);
+            evt.menu.AppendAction("Hide Minimap", _ => HideMinimap(), _isVisible ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
+        
+            if (_isMinimized)
+            {
+                evt.menu.AppendAction("Unfold Minimap", _ => UnfoldMinimap());
+            }
+            else
+            {
+                evt.menu.AppendAction("Fold Minimap", _ => FoldMinimap());
+            }
+        
+            evt.menu.AppendAction("Remove Minimap", _ => RemoveMinimap());
         }
 
         private void UpdateScaleFactors()

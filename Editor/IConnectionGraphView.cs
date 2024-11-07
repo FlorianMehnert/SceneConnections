@@ -86,7 +86,7 @@ namespace SceneConnections.Editor
 
         StyleColor HighlightColor { get; }
 
-        List<Node> Nodes { get; set; }
+        List<Node> Nodes { get; }
         StyleColor DefaultNodeColor { get; }
 
         string PathTextFieldValue { get; set; }

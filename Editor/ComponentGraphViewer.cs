@@ -19,9 +19,9 @@ namespace SceneConnections.Editor
             var setComponentGraphDrawType = new DropdownField("Set Component Graph Draw Type")
             {
                 choices = { "nodes are components", "nodes are game objects", "nodes are scripts" },
-                value = "nodes are game objects"
+                value = "nodes are scripts"
             };
-            setComponentGraphDrawType.RegisterValueChangedCallback(evt => { _graphView.SetComponentGraphDrawType(Constants.ToCgdt(evt.newValue)); });
+            setComponentGraphDrawType.RegisterValueChangedCallback(evt => { _graphView.GraphDrawType = Constants.ToCgdt(evt.newValue); });
             rootVisualElement.Add(setComponentGraphDrawType);
 
             var refreshButton = new Button(() =>

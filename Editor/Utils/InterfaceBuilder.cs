@@ -94,11 +94,38 @@ namespace SceneConnections.Editor.Utils
                 }
             };
             var minimap = new NavigableMinimap((GraphView)_gv);
-            minimap.SetPosition(new Rect(3, 55, 212, 100));
+            minimap.SetPosition(new Rect(150, 50, 212, 100));
             minimap.anchored = true;
             DrawToolbar(leftContainer);
+            var referenceToggles = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Column,
+                    flexGrow = 1
+                }
+            };
+            var inheritance = new Toggle("inheritance")
+            {
+                value = true
+            };
+            var fields = new Toggle("fields")
+            {
+                value = true
+            };
+            var methods = new Toggle("methods")
+            {
+                value = true
+            };
+            referenceToggles.Add(inheritance);
+            referenceToggles.Add(fields);
+            referenceToggles.Add(methods);
+            inheritance.RegisterValueChangedCallback(evt => { });
+            fields.RegisterValueChangedCallback(evt => { });
+            methods.RegisterValueChangedCallback(evt => { });
+            _gv.Add(referenceToggles);
             mainContainer.Add(leftContainer);
-            mainContainer.Add(minimap);
+            _gv.Add(minimap);
             CreateSearchBar();
         }
 
@@ -123,10 +150,10 @@ namespace SceneConnections.Editor.Utils
                     width = 200,
                     backgroundColor = new Color(0.2f, 0.2f, 0.2f),
                     flexDirection = FlexDirection.Row,
-                    justifyContent = Justify.SpaceBetween,
+                    justifyContent = Justify.SpaceBetween
                 }
             };
-            
+
             _gv.SearchField.RegisterValueChangedCallback(_gv.OnSearchTextChanged);
             parentElement.Add(_gv.SearchField);
         }
