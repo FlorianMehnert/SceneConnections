@@ -14,8 +14,9 @@ namespace SceneConnections.Editor.Utils
             _gv = gv;
         }
 
-        private void DrawToolbar(VisualElement parentElement)
+        private void DrawToolbar(VisualElement parentElement = null)
         {
+            parentElement ??= (VisualElement)_gv;
             var toolbar = new IMGUIContainer(() =>
             {
                 EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
@@ -68,9 +69,10 @@ namespace SceneConnections.Editor.Utils
             var selectPathButton = new Button(OpenPathDialog) { text = "Choose Path" };
 
             uiElementsToolbar.Add(_gv.PathTextField);
+            uiElementsToolbar.name = "file_chooser";
             uiElementsToolbar.Add(selectPathButton);
 
-            parentElement.Add(uiElementsToolbar);
+            _gv.Add(uiElementsToolbar);
         }
 
         internal void SetupUI()
@@ -97,6 +99,7 @@ namespace SceneConnections.Editor.Utils
             DrawToolbar(leftContainer);
             mainContainer.Add(leftContainer);
             mainContainer.Add(minimap);
+            CreateSearchBar();
         }
 
         private void OpenPathDialog()
@@ -109,30 +112,23 @@ namespace SceneConnections.Editor.Utils
             Debug.Log(_gv.PathTextFieldValue);
         }
 
-        public void CreateSearchBar(VisualElement parentElement = null)
+        private void CreateSearchBar(VisualElement parentElement = null)
         {
+            parentElement ??= (VisualElement)_gv;
             _gv.SearchField = new TextField
             {
                 style =
                 {
-                    top = 25,
                     left = 0,
                     width = 200,
-                    position = Position.Absolute,
-                    backgroundColor = new Color(0.2f, 0.2f, 0.2f)
+                    backgroundColor = new Color(0.2f, 0.2f, 0.2f),
+                    flexDirection = FlexDirection.Row,
+                    justifyContent = Justify.SpaceBetween,
                 }
             };
-
+            
             _gv.SearchField.RegisterValueChangedCallback(_gv.OnSearchTextChanged);
-            if (parentElement == null)
-            {
-                _gv.Add(_gv.SearchField);
-            }
-            else
-            {
-                Debug.Log("added null search bar");
-                parentElement.Add(_gv.SearchField);
-            }
+            parentElement.Add(_gv.SearchField);
         }
     }
 }

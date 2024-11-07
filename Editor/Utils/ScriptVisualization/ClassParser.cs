@@ -14,6 +14,27 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
     {
         private static readonly ThreadLocal<HashSet<string>> UsingStatements = new(() => new HashSet<string>());
 
+        /// <summary>
+        /// Gets all Class References within a directory and below given as string <see cref="GetAllClassReferencesParallel(System.Collections.Generic.IEnumerable{string})"/>
+        /// </summary>
+        /// <param name="rootDirectory">String defining the path to the root directory</param>
+        /// <returns></returns>
+        public static Dictionary<string, List<string>> GetAllClassReferencesParallel(string rootDirectory)
+        {
+            var scriptPaths = GetScriptPathsInDirectory(rootDirectory);
+            return GetAllClassReferencesParallel(scriptPaths);
+        }
+
+        private static List<string> GetScriptPathsInDirectory(string rootDirectory)
+        {
+            return rootDirectory == "" ? new List<string>() : Directory.GetFiles(rootDirectory, "*.cs", SearchOption.AllDirectories).ToList();
+        }
+
+        /// <summary>
+        /// Gets all Class References for given paths
+        /// </summary>
+        /// <param name="scriptPaths">List of Script paths to search in</param>
+        /// <returns></returns>
         public static Dictionary<string, List<string>> GetAllClassReferencesParallel(IEnumerable<string> scriptPaths)
         {
             var resultDictionary = new ConcurrentDictionary<string, List<string>>();
@@ -38,6 +59,8 @@ namespace SceneConnections.Editor.Utils.ScriptVisualization
 
             return new Dictionary<string, List<string>>(resultDictionary);
         }
+        
+        
 
         private static List<string> GetClassFieldReferences(string scriptPath)
         {

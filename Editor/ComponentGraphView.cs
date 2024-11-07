@@ -53,7 +53,7 @@ namespace SceneConnections.Editor
             NodeGraphBuilder.SetupProgressBar();
             var interfaceBuilder = new InterfaceBuilder(this);
             interfaceBuilder.SetupUI();
-            interfaceBuilder.CreateSearchBar();
+            
         }
 
         /// <summary>
@@ -199,8 +199,18 @@ namespace SceneConnections.Editor
                     // 4. update layout
                     // 5. group if needed
 
-                    var scriptPaths = ScriptFinder.GetAllScriptPaths();
-                    var allReferences = ClassParser.GetAllClassReferencesParallel(scriptPaths);
+                    Dictionary<string, List<string>> allReferences;
+                    if (PathTextFieldValue != "")
+                    {
+                        allReferences = ClassParser.GetAllClassReferencesParallel(PathTextFieldValue);
+                    }
+                    else
+                    {
+                        var scriptPaths = ScriptFinder.GetAllScriptPaths();
+                        allReferences = ClassParser.GetAllClassReferencesParallel(scriptPaths);
+                    }
+
+
                     foreach (var (scriptName, _) in allReferences)
                     {
                         var node = new Node { title = scriptName };
