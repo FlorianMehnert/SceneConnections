@@ -97,5 +97,9 @@ namespace SceneConnections.Editor
         public List<GraphElement> GraphElements { get; }
 
         public NodeGraphBuilder NodeGraphBuilder { get; }
+        
+        public bool ReferenceInheritance { get; set; }
+        public bool ReferenceFields { get; set; }
+        public bool ReferenceMethods { get; set; }
     }
 }

@@ -120,9 +120,9 @@ namespace SceneConnections.Editor.Utils
             referenceToggles.Add(inheritance);
             referenceToggles.Add(fields);
             referenceToggles.Add(methods);
-            inheritance.RegisterValueChangedCallback(evt => { });
-            fields.RegisterValueChangedCallback(evt => { });
-            methods.RegisterValueChangedCallback(evt => { });
+            inheritance.RegisterValueChangedCallback(evt => { _gv.ReferenceInheritance = evt.newValue; });
+            fields.RegisterValueChangedCallback(evt => { _gv.ReferenceFields = evt.newValue; });
+            methods.RegisterValueChangedCallback(evt => { _gv.ReferenceMethods = evt.newValue; });
             _gv.Add(referenceToggles);
             mainContainer.Add(leftContainer);
             _gv.Add(minimap);
