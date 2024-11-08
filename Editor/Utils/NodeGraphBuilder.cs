@@ -115,7 +115,7 @@ namespace SceneConnections.Editor.Utils
                 // Layout this batch
                 batchStopwatch.Restart();
                 var batchNodes = _gv.Nodes.Skip(start).Take(count).ToList();
-                NodeLayoutManager.LayoutNodes(batchNodes, silent: true);
+                NodeLayoutManager.LayoutNodes(batchNodes);
                 batchStopwatch.Stop();
 
                 batchMetrics.BatchLayoutTime = batchStopwatch.Elapsed.TotalMilliseconds;

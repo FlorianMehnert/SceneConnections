@@ -71,8 +71,7 @@ namespace SceneConnections.Editor
                     evt.StopPropagation();
                     break;
                 case true when evt.keyCode == KeyCode.L:
-                    LayoutNodes(GraphDrawType);
-                    evt.StopPropagation();
+                    NodeLayoutManager.DisableDisconnectedNodes(Nodes, edges.ToList());
                     break;
                 case true when evt.keyCode == KeyCode.C:
                     NodeGraphBuilder.BuildGraph();

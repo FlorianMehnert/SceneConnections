@@ -14,63 +14,64 @@ namespace SceneConnections.Editor.Utils
         private const float VerticalSpacing = 50.0f;
         private const float InitialX = 100.0f;
         private const float InitialY = 100.0f;
-        private static EventCallback<GeometryChangedEvent> _geometryChangedCallback;
 
-        // Dictionary to store the dimensions of each node
         private static readonly Dictionary<Node, Vector2> NodeDimensions = new();
         private static Dictionary<Node, bool> NodeReceivedDimension => new();
         private static bool _layoutUpdated;
 
-        public static void LayoutNodes(List<Node> nodes, bool silent = false)
+        // Dictionary to track connections between nodes
+        private static readonly Dictionary<Node, List<Node>> NodeConnections = new();
+
+        public static void LayoutNodes(List<Node> nodes, List<Edge> allEdges=null, bool silent = false)
         {
             if (nodes == null || nodes.Count == 0)
                 return;
 
             NodeDimensions.Clear();
-            _geometryChangedCallback = evt => OnNodeGeometryChanged(evt.target as Node, nodes, silent);
+            NodeConnections.Clear();
 
             foreach (var node in nodes)
             {
                 NodeReceivedDimension[node] = false;
-                node.RegisterCallback(_geometryChangedCallback);
+                node.RegisterCallback<GeometryChangedEvent>(_ => OnNodeGeometryChanged(node, nodes, silent));
                 _layoutUpdated = false;
+
+                // Populate NodeConnections based on edges
+                if (allEdges != null)
+                {
+                    NodeConnections[node] = GetConnectedNodes(node, allEdges);
+                }
             }
         }
 
         private static void OnNodeGeometryChanged(Node node, List<Node> nodes, bool silent)
         {
-            // Get the current dimensions of the node
             var rect = node.GetPosition();
             var nodeSize = new Vector2(rect.width, rect.height);
 
-            // Only store dimensions if they are valid (non-zero)
             if (nodeSize is { x: > 0, y: > 0 })
             {
                 NodeDimensions[node] = nodeSize;
                 NodeReceivedDimension[node] = true;
             }
 
-            // Check if all nodes have received valid dimensions
             if (NodeDimensions.Count != nodes.Count) return;
-            // Unregister the GeometryChanged callback from all nodes
+
             foreach (var n in nodes)
             {
-                n.UnregisterCallback(_geometryChangedCallback);
+                n.UnregisterCallback<GeometryChangedEvent>(_ => OnNodeGeometryChanged(n, nodes, silent));
             }
 
             if (!NodeReceivedDimension.All(kvp => kvp.Value) || _layoutUpdated) return;
-            _layoutUpdated = true;  // Make sure this is set to true to prevent re-layout
+            _layoutUpdated = true;
             PerformLayout(nodes, silent);
         }
 
         private static void PerformLayout(List<Node> nodes, bool silent)
         {
-            // Calculate optimal grid dimensions
             var totalNodes = nodes.Count;
             var gridColumns = CalculateOptimalColumnCount(totalNodes);
             var gridRows = Mathf.CeilToInt((float)totalNodes / gridColumns);
-
-            // Find maximum node dimensions to ensure consistent spacing
             var maxNodeDimensions = GetMaxNodeDimensions();
 
             if (!silent)
@@ -79,7 +80,6 @@ namespace SceneConnections.Editor.Utils
                 Debug.Log($"Max Node Dimensions: {maxNodeDimensions}");
             }
 
-            // Position each node in the grid
             for (var i = 0; i < nodes.Count; i++)
             {
                 var row = i / gridColumns;
@@ -96,13 +96,8 @@ namespace SceneConnections.Editor.Utils
 
         private static int CalculateOptimalColumnCount(int nodeCount)
         {
-            // Aim for a golden ratio-like aspect ratio (1.618)
             const float targetAspectRatio = 1.618f;
-
-            // Calculate columns based on desired aspect ratio
             var columns = Mathf.RoundToInt(Mathf.Sqrt(nodeCount * targetAspectRatio));
-
-            // Ensure we have at least one column
             return Mathf.Max(1, columns);
         }
 
@@ -111,7 +106,6 @@ namespace SceneConnections.Editor.Utils
             var maxWidth = DefaultNodeWidth;
             var maxHeight = DefaultNodeHeight;
 
-            // Calculate maximum dimensions across all nodes
             foreach (var size in NodeDimensions.Values)
             {
                 maxWidth = Mathf.Max(maxWidth, size.x);
@@ -128,6 +122,40 @@ namespace SceneConnections.Editor.Utils
 
             var newRect = new Rect(position, new Vector2(width, height));
             node.SetPosition(newRect);
+        }
+
+        // Method to get nodes connected to a given node based on edges
+        private static List<Node> GetConnectedNodes(Node node, List<Edge> allEdges)
+        {
+            var connectedNodes = new List<Node>();
+
+            // Find all edges that involve the current node
+            foreach (var edge in allEdges)
+            {
+                if (edge.input.node == node && edge.output.node != null)
+                    connectedNodes.Add(edge.output.node);
+                else if (edge.output.node == node && edge.input.node != null)
+                    connectedNodes.Add(edge.input.node);
+            }
+
+            return connectedNodes;
+        }
+
+        // Method to disable nodes without connections and recalculate layout
+        public static void DisableDisconnectedNodes(List<Node> nodes, List<Edge> allEdges, bool silent = false)
+        {
+            var connectedNodes = nodes
+                .Where(node => GetConnectedNodes(node, allEdges).Count > 0)
+                .ToList();
+
+            // Disable all nodes without connections
+            foreach (var node in nodes)
+            {
+                node.visible = connectedNodes.Contains(node);
+            }
+
+            // Recalculate layout with only connected nodes
+            PerformLayout(connectedNodes, silent);
         }
     }
 }
