@@ -19,28 +19,25 @@ namespace SceneConnections.Editor.Utils
         private static Dictionary<Node, bool> NodeReceivedDimension => new();
         private static bool _layoutUpdated;
 
-        // Dictionary to track connections between nodes
+        // Physics parameters
+        private const float AttractionStrength = 0.0001f;
+        private const float RepulsionStrength = 1000.0f;
+        private const float DampingFactor = 0.95f; // Reduces force over time to stabilize layout
+        private const int SimulationSteps = 100000;
+        
         private static readonly Dictionary<Node, List<Node>> NodeConnections = new();
 
-        public static void LayoutNodes(List<Node> nodes, List<Edge> allEdges=null, bool silent = false)
+        public static void LayoutNodes(List<Node> nodes, bool silent = false)
         {
             if (nodes == null || nodes.Count == 0)
                 return;
 
             NodeDimensions.Clear();
-            NodeConnections.Clear();
-
             foreach (var node in nodes)
             {
                 NodeReceivedDimension[node] = false;
                 node.RegisterCallback<GeometryChangedEvent>(_ => OnNodeGeometryChanged(node, nodes, silent));
                 _layoutUpdated = false;
-
-                // Populate NodeConnections based on edges
-                if (allEdges != null)
-                {
-                    NodeConnections[node] = GetConnectedNodes(node, allEdges);
-                }
             }
         }
 
@@ -69,6 +66,7 @@ namespace SceneConnections.Editor.Utils
 
         private static void PerformLayout(List<Node> nodes, bool silent)
         {
+            // Default grid layout
             var totalNodes = nodes.Count;
             var gridColumns = CalculateOptimalColumnCount(totalNodes);
             var gridRows = Mathf.CeilToInt((float)totalNodes / gridColumns);
@@ -124,7 +122,6 @@ namespace SceneConnections.Editor.Utils
             node.SetPosition(newRect);
         }
 
-        // Method to get nodes connected to a given node based on edges
         private static List<Node> GetConnectedNodes(Node node, List<Edge> allEdges)
         {
             var connectedNodes = new List<Node>();
@@ -156,6 +153,72 @@ namespace SceneConnections.Editor.Utils
 
             // Recalculate layout with only connected nodes
             PerformLayout(connectedNodes, silent);
+        }
+
+        // New physics-based layout method
+        public static void PhysicsBasedLayout(List<Node> nodes, List<Edge> allEdges, bool silent = false)
+        {
+            // Initialize positions and velocities for nodes
+            var positions = nodes.ToDictionary(node => node, _ => Random.insideUnitCircle * 100);
+            var velocities = nodes.ToDictionary(node => node, _ => Vector2.zero);
+
+            var step = 0;
+            for (; step < SimulationSteps; step++)
+            {
+                // Apply forces for each pair of nodes (repulsion)
+                for (var i = 0; i < nodes.Count; i++)
+                {
+                    for (var j = i + 1; j < nodes.Count; j++)
+                    {
+                        var nodeA = nodes[i];
+                        var nodeB = nodes[j];
+                        var delta = positions[nodeB] - positions[nodeA];
+                        var distance = delta.magnitude;
+                        if (!(distance > 0)) continue;
+                        var repulsionForce = RepulsionStrength / (distance * distance);
+                        var repulsion = delta.normalized * repulsionForce;
+                        velocities[nodeA] -= repulsion;
+                        velocities[nodeB] += repulsion;
+                    }
+                }
+
+                // Apply attraction for connected nodes (edges)
+                foreach (var edge in allEdges)
+                {
+                    if (edge.input.node == null || edge.output.node == null)
+                        continue;
+
+                    var nodeA = (Node)edge.input.node;
+                    var nodeB = (Node)edge.output.node;
+                    var delta = positions[nodeB] - positions[nodeA];
+                    var distance = delta.magnitude;
+
+                    if (!(distance > 0)) continue;
+                    var attractionForce = AttractionStrength * distance;
+                    var attraction = delta.normalized * attractionForce;
+                    velocities[nodeA] += attraction;
+                    velocities[nodeB] -= attraction;
+                }
+
+                // Update positions and apply damping
+                foreach (var node in nodes)
+                {
+                    velocities[node] *= DampingFactor;
+                    positions[node] += velocities[node];
+                }
+            }
+
+            // Set the final positions
+            foreach (var node in nodes)
+            {
+                var finalPosition = positions[node];
+                SetNodePosition(node, finalPosition, GetMaxNodeDimensions());
+            }
+
+            if (!silent)
+            {
+                Debug.Log("Physics-based layout applied.");
+            }
         }
     }
 }

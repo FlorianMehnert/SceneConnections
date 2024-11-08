@@ -79,20 +79,7 @@ namespace SceneConnections.Editor
                     break;
                 case true when evt.keyCode == KeyCode.I:
                 {
-                    var i = 0;
-                    foreach (var group in _gameObjectGroups.Select(kvp => kvp.Value))
-                    {
-                        if (_currentDebuggedRect < i &&
-                            group.containedElements.OfType<GameObjectNode>().ToArray().Length > 1)
-                        {
-                            group.selected = true;
-                            break;
-                        }
-
-                        ++i;
-                    }
-
-                    ++_currentDebuggedRect;
+                    NodeLayoutManager.PhysicsBasedLayout(Nodes, edges.ToList());
                     evt.StopPropagation();
                     break;
                 }
