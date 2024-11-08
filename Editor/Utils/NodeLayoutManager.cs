@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -13,42 +14,56 @@ namespace SceneConnections.Editor.Utils
         private const float VerticalSpacing = 50.0f;
         private const float InitialX = 100.0f;
         private const float InitialY = 100.0f;
+        private static EventCallback<GeometryChangedEvent> _geometryChangedCallback;
 
-        private static readonly HashSet<Node> NodesWithGeometry = new();
+        // Dictionary to store the dimensions of each node
+        private static readonly Dictionary<Node, Vector2> NodeDimensions = new();
+        private static Dictionary<Node, bool> NodeReceivedDimension => new();
+        private static bool _layoutUpdated;
 
         public static void LayoutNodes(List<Node> nodes, bool silent = false)
         {
             if (nodes == null || nodes.Count == 0)
                 return;
 
-            // Clear the set of nodes with geometry changes
-            NodesWithGeometry.Clear();
+            NodeDimensions.Clear();
+            _geometryChangedCallback = evt => OnNodeGeometryChanged(evt.target as Node, nodes, silent);
 
-            // Register GeometryChanged callback for each node
             foreach (var node in nodes)
             {
-                node.RegisterCallback<GeometryChangedEvent>(_ => OnNodeGeometryChanged(node, nodes, silent));
+                NodeReceivedDimension[node] = false;
+                node.RegisterCallback(_geometryChangedCallback);
+                _layoutUpdated = false;
             }
         }
 
         private static void OnNodeGeometryChanged(Node node, List<Node> nodes, bool silent)
         {
-            // Add the node to the set if it hasn't been added already
-            NodesWithGeometry.Add(node);
+            // Get the current dimensions of the node
+            var rect = node.GetPosition();
+            var nodeSize = new Vector2(rect.width, rect.height);
 
-            // Check if all nodes have received a GeometryChanged event
-            if (NodesWithGeometry.Count != nodes.Count) return;
+            // Only store dimensions if they are valid (non-zero)
+            if (nodeSize is { x: > 0, y: > 0 })
+            {
+                NodeDimensions[node] = nodeSize;
+                NodeReceivedDimension[node] = true;
+            }
+
+            // Check if all nodes have received valid dimensions
+            if (NodeDimensions.Count != nodes.Count) return;
             // Unregister the GeometryChanged callback from all nodes
             foreach (var n in nodes)
             {
-                n.UnregisterCallback<GeometryChangedEvent>(_ => OnNodeGeometryChanged(n, nodes, silent));
+                n.UnregisterCallback(_geometryChangedCallback);
             }
 
-            // Proceed with layout once all nodes have been initialized
+            if (!NodeReceivedDimension.All(kvp => kvp.Value) || _layoutUpdated) return;
+            _layoutUpdated = true;  // Make sure this is set to true to prevent re-layout
             PerformLayout(nodes, silent);
         }
 
-        private static void PerformLayout(List<Node> nodes, bool silent=true)
+        private static void PerformLayout(List<Node> nodes, bool silent)
         {
             // Calculate optimal grid dimensions
             var totalNodes = nodes.Count;
@@ -56,7 +71,7 @@ namespace SceneConnections.Editor.Utils
             var gridRows = Mathf.CeilToInt((float)totalNodes / gridColumns);
 
             // Find maximum node dimensions to ensure consistent spacing
-            var maxNodeDimensions = GetMaxNodeDimensions(nodes);
+            var maxNodeDimensions = GetMaxNodeDimensions();
 
             if (!silent)
             {
@@ -91,20 +106,16 @@ namespace SceneConnections.Editor.Utils
             return Mathf.Max(1, columns);
         }
 
-        private static Vector2 GetMaxNodeDimensions(List<Node> nodes)
+        private static Vector2 GetMaxNodeDimensions()
         {
             var maxWidth = DefaultNodeWidth;
             var maxHeight = DefaultNodeHeight;
 
-            foreach (var node in nodes)
+            // Calculate maximum dimensions across all nodes
+            foreach (var size in NodeDimensions.Values)
             {
-                var currentRect = node.GetPosition();
-
-                // Only consider non-zero dimensions
-                if (currentRect.width > 0)
-                    maxWidth = Mathf.Max(maxWidth, currentRect.width);
-                if (currentRect.height > 0)
-                    maxHeight = Mathf.Max(maxHeight, currentRect.height);
+                maxWidth = Mathf.Max(maxWidth, size.x);
+                maxHeight = Mathf.Max(maxHeight, size.y);
             }
 
             return new Vector2(maxWidth, maxHeight);
@@ -112,9 +123,8 @@ namespace SceneConnections.Editor.Utils
 
         private static void SetNodePosition(Node node, Vector2 position, Vector2 standardSize)
         {
-            var currentRect = node.GetPosition();
-            var width = currentRect.width > 0 ? currentRect.width : standardSize.x;
-            var height = currentRect.height > 0 ? currentRect.height : standardSize.y;
+            var width = NodeDimensions.TryGetValue(node, out var dimension) ? dimension.x : standardSize.x;
+            var height = NodeDimensions.TryGetValue(node, out var nodeDimension) ? nodeDimension.y : standardSize.y;
 
             var newRect = new Rect(position, new Vector2(width, height));
             node.SetPosition(newRect);
