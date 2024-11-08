@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace SceneConnections.Editor.Utils
 {
@@ -13,11 +14,42 @@ namespace SceneConnections.Editor.Utils
         private const float InitialX = 100.0f;
         private const float InitialY = 100.0f;
 
+        private static readonly HashSet<Node> NodesWithGeometry = new();
+
         public static void LayoutNodes(List<Node> nodes, bool silent = false)
         {
             if (nodes == null || nodes.Count == 0)
                 return;
 
+            // Clear the set of nodes with geometry changes
+            NodesWithGeometry.Clear();
+
+            // Register GeometryChanged callback for each node
+            foreach (var node in nodes)
+            {
+                node.RegisterCallback<GeometryChangedEvent>(_ => OnNodeGeometryChanged(node, nodes, silent));
+            }
+        }
+
+        private static void OnNodeGeometryChanged(Node node, List<Node> nodes, bool silent)
+        {
+            // Add the node to the set if it hasn't been added already
+            NodesWithGeometry.Add(node);
+
+            // Check if all nodes have received a GeometryChanged event
+            if (NodesWithGeometry.Count != nodes.Count) return;
+            // Unregister the GeometryChanged callback from all nodes
+            foreach (var n in nodes)
+            {
+                n.UnregisterCallback<GeometryChangedEvent>(_ => OnNodeGeometryChanged(n, nodes, silent));
+            }
+
+            // Proceed with layout once all nodes have been initialized
+            PerformLayout(nodes, silent);
+        }
+
+        private static void PerformLayout(List<Node> nodes, bool silent=true)
+        {
             // Calculate optimal grid dimensions
             var totalNodes = nodes.Count;
             var gridColumns = CalculateOptimalColumnCount(totalNodes);
@@ -31,7 +63,6 @@ namespace SceneConnections.Editor.Utils
                 Debug.Log($"Grid: {gridRows}x{gridColumns}, Total Nodes: {totalNodes}");
                 Debug.Log($"Max Node Dimensions: {maxNodeDimensions}");
             }
-
 
             // Position each node in the grid
             for (var i = 0; i < nodes.Count; i++)

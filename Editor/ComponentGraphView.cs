@@ -109,10 +109,10 @@ namespace SceneConnections.Editor
                             break;
                         }
                         case Constants.ComponentGraphDrawType.NodesAreGameObjects:
-                            EditorApplication.delayCall += LayoutNodesUsingManager;
+                            UpdateLayout();
                             break;
                         case Constants.ComponentGraphDrawType.NodesAreScripts:
-                            EditorApplication.delayCall += LayoutNodesUsingManager;
+                            UpdateLayout();
                             break;
                         default:
                             throw new ArgumentOutOfRangeException();
@@ -131,20 +131,6 @@ namespace SceneConnections.Editor
         {
             ClearGraph();
             CreateGraph(GraphDrawType);
-
-            _needsLayout = true;
-            EditorApplication.delayCall += PerformLayout;
-        }
-
-        /// <summary>
-        /// Wrapper method for <see cref="LayoutNodes(Constants.ComponentGraphDrawType)"/> that adds debug statements and visual feedback
-        /// </summary>
-        private void PerformLayout()
-        {
-            if (!_needsLayout) return;
-
-            LayoutNodes(GraphDrawType);
-            _needsLayout = false;
         }
 
         private void ClearGraph()
@@ -229,7 +215,6 @@ namespace SceneConnections.Editor
 
                         CreateReference(reference, sourceNode);
                     });
-                    EditorApplication.delayCall += UpdateLayout;
                     break;
                 }
                 default:
@@ -256,14 +241,14 @@ namespace SceneConnections.Editor
                 if (_scripts.TryGetValue(className, out var targetNode))
                 {
                     // Use dispatcher to create edge on main thread since Unity UI must be modified on main thread
-                    EditorApplication.delayCall += () => { CreateEdge(sourceNode, targetNode, Color.red); };
+                    EditorApplication.delayCall += () => CreateEdge(sourceNode, targetNode, Color.red);
                 }
             }
         }
 
         private void UpdateLayout()
         {
-            EditorApplication.delayCall += LayoutNodesUsingManager;
+            LayoutNodesUsingManager();
             foreach (var node in nodes)
             {
                 node.RefreshExpandedState();
@@ -506,10 +491,10 @@ namespace SceneConnections.Editor
                     break;
                 }
                 case Constants.ComponentGraphDrawType.NodesAreGameObjects:
-                    LayoutNodesUsingManager();
+                    UpdateLayout();
                     break;
                 case Constants.ComponentGraphDrawType.NodesAreScripts:
-                    LayoutNodesUsingManager();
+                    UpdateLayout();
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(representation), representation, null);
@@ -580,13 +565,13 @@ namespace SceneConnections.Editor
 
         public TextField SearchField { get; set; }
         public StyleColor HighlightColor { get; }
-        public List<Node> Nodes { get; set; }
+        public List<Node> Nodes { get; private set; }
         public StyleColor DefaultNodeColor { get; }
 
         public bool IsBusy { get; set; }
 
         public List<GraphElement> GraphElements => graphElements.ToList();
-        public NodeGraphBuilder NodeGraphBuilder { get; set; }
+        public NodeGraphBuilder NodeGraphBuilder { get; }
 
         public bool ReferenceInheritance { get; set; }
         public bool ReferenceFields { get; set; }
