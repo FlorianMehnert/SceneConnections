@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using JetBrains.Annotations;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -20,12 +22,11 @@ namespace SceneConnections.Editor.Utils
         private static bool _layoutUpdated;
 
         // Physics parameters
-        private const float AttractionStrength = 0.0001f;
-        private const float RepulsionStrength = 1000.0f;
-        private const float DampingFactor = 0.95f; // Reduces force over time to stabilize layout
-        private const int SimulationSteps = 100000;
-        
-        private static readonly Dictionary<Node, List<Node>> NodeConnections = new();
+        private const float AttractionStrength = 0.0005f;
+        private const float RepulsionStrength = 1.0f;
+        private const float DampingFactor = 0.99f; // Reduces force over time to stabilize layout
+        private const int SimulationSteps = 10;
+        private const int CollisionRadius = 5;
 
         public static void LayoutNodes(List<Node> nodes, bool silent = false)
         {
@@ -156,6 +157,7 @@ namespace SceneConnections.Editor.Utils
         }
 
         // New physics-based layout method
+        [UsedImplicitly]
         public static void PhysicsBasedLayout(List<Node> nodes, List<Edge> allEdges, bool silent = false)
         {
             // Initialize positions and velocities for nodes
@@ -188,8 +190,8 @@ namespace SceneConnections.Editor.Utils
                     if (edge.input.node == null || edge.output.node == null)
                         continue;
 
-                    var nodeA = (Node)edge.input.node;
-                    var nodeB = (Node)edge.output.node;
+                    var nodeA = edge.input.node;
+                    var nodeB = edge.output.node;
                     var delta = positions[nodeB] - positions[nodeA];
                     var distance = delta.magnitude;
 
@@ -218,6 +220,76 @@ namespace SceneConnections.Editor.Utils
             if (!silent)
             {
                 Debug.Log("Physics-based layout applied.");
+            }
+        }
+
+        public static void PhysicsBasedLayoutParallel(List<Node> nodes, List<Edge> allEdges, bool silent = false)
+        {
+            var positions = nodes.ToDictionary(node => node, _ => Random.insideUnitCircle * 100);
+            var velocities = nodes.ToDictionary(node => node, _ => Vector2.zero);
+
+            // Use Parallel.For to distribute the simulation steps across multiple threads
+            Parallel.For((long)0, SimulationSteps, _ =>
+            {
+                // Apply forces for each pair of nodes (repulsion and collision)
+                Parallel.ForEach(nodes, nodeA =>
+                {
+                    foreach (var nodeB in nodes)
+                    {
+                        if (nodeA == nodeB) continue;
+                        var delta = positions[nodeB] - positions[nodeA];
+                        var distance = delta.magnitude;
+                        if (!(distance > 0)) continue;
+                        // Repulsion force
+                        var repulsionForce = RepulsionStrength / (distance * distance);
+                        var repulsion = delta.normalized * repulsionForce;
+                        velocities[nodeA] -= repulsion;
+
+                        // Collision avoidance force
+                        if (!(distance < CollisionRadius)) continue;
+                        var collisionForce = (CollisionRadius - distance) * 10.0f;
+                        var collision = delta.normalized * collisionForce;
+                        velocities[nodeA] -= collision;
+                        velocities[nodeB] += collision;
+                    }
+                });
+
+                // Apply attraction for connected nodes (edges)
+                foreach (var edge in allEdges)
+                {
+                    if (edge.input.node == null || edge.output.node == null)
+                        continue;
+
+                    var nodeA = edge.input.node;
+                    var nodeB = edge.output.node;
+                    var delta = positions[nodeB] - positions[nodeA];
+                    var distance = delta.magnitude;
+
+                    if (!(distance > 0)) continue;
+                    var attractionForce = AttractionStrength * distance;
+                    var attraction = delta.normalized * attractionForce;
+                    velocities[nodeA] += attraction;
+                    velocities[nodeB] -= attraction;
+                }
+
+                // Update positions and apply damping
+                Parallel.ForEach(nodes, node =>
+                {
+                    velocities[node] *= DampingFactor;
+                    positions[node] += velocities[node];
+                });
+            });
+
+            // Set the final positions
+            Parallel.ForEach(nodes, node =>
+            {
+                var finalPosition = positions[node];
+                SetNodePosition(node, finalPosition, GetMaxNodeDimensions());
+            });
+
+            if (!silent)
+            {
+                Debug.Log("Optimized physics-based layout with collision avoidance applied.");
             }
         }
     }

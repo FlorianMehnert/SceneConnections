@@ -79,7 +79,7 @@ namespace SceneConnections.Editor
                     break;
                 case true when evt.keyCode == KeyCode.I:
                 {
-                    NodeLayoutManager.PhysicsBasedLayout(Nodes, edges.ToList());
+                    NodeLayoutManager.PhysicsBasedLayoutParallel(Nodes, edges.ToList());
                     evt.StopPropagation();
                     break;
                 }
