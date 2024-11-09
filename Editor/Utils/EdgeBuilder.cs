@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 using UnityEditor;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
@@ -18,7 +19,8 @@ namespace SceneConnections.Editor.Utils
     {
         private readonly GraphView _targetGraphView;
         private List<Node> _nodes = new();
-        private List<Edge> _edges = new();
+        [UsedImplicitly]
+        private readonly List<Edge> _edges = new();
         private bool _isProcessing;
         private float _progress;
         private const int BatchSize = 2500; // Default batch size

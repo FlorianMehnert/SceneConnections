@@ -152,7 +152,6 @@ namespace SceneConnections.Editor
                             CreateComponentNode(component);
                         }
                     }
-
                     break;
                 }
                 // nodes contain attributes that correspond to attached components
@@ -228,7 +227,7 @@ namespace SceneConnections.Editor
                 if (_scripts.TryGetValue(className, out var targetNode))
                 {
                     // Use dispatcher to create edge on main thread since Unity UI must be modified on main thread
-                    EditorApplication.delayCall += () => CreateEdge(sourceNode, targetNode, Color.red);
+                    EditorApplication.delayCall += () => CreateEdge(sourceNode, targetNode);
                 }
             }
         }
@@ -378,7 +377,7 @@ namespace SceneConnections.Editor
                     var targetComponent = field.GetValue(sourceComponent) as Component;
                     if (targetComponent != null && _componentNodes.TryGetValue(targetComponent, out var targetNode))
                     {
-                        CreateEdge(sourceNode, targetNode, Color.blue);
+                        CreateEdge(sourceNode, targetNode);
                     }
                 }
             }
@@ -389,8 +388,7 @@ namespace SceneConnections.Editor
         /// </summary>
         /// <param name="sourceNode">Node that is origin of the connection</param>
         /// <param name="targetNode">Node that is target of the connection</param>
-        /// <param name="color"></param>
-        private void CreateEdge(Node sourceNode, Node targetNode, Color color)
+        private void CreateEdge(Node sourceNode, Node targetNode)
         {
             if (sourceNode == targetNode) return; // Prevent self-referencing edges
 

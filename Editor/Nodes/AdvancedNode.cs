@@ -36,9 +36,5 @@ namespace SceneConnections.Editor.Nodes
             NodeUtils.ResetNodeColors();
             NodeUtils.TraverseConnectedNodes(this, color, visitedNodes);
         }
-        
-        private void AddAttributes(){}
-
-        
     }
 }

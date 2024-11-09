@@ -1,16 +1,16 @@
+using JetBrains.Annotations;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace SceneConnections.Editor.Nodes
 {
+    [UsedImplicitly]
     public sealed class GameObjectNode : Node
     {
 
         private GameObjectNode()
         {
-            title = "Game Object Node";
-
             // Create input and output ports
             var inputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Single, typeof(float));
             inputPort.portName = "Input";
@@ -25,12 +25,6 @@ namespace SceneConnections.Editor.Nodes
             contentContainer.Add(contentLabel);
 
             this.AddManipulator(new ContextualMenuManipulator(BuildContextMenu));
-        }
-
-        public sealed override string title
-        {
-            get => base.title;
-            set => base.title = value;
         }
 
         private void BuildContextMenu(ContextualMenuPopulateEvent evt)
