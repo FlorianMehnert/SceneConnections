@@ -538,6 +538,21 @@ namespace SceneConnections.Editor
                 finalHeight
             ));
         }
+        
+        public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
+        {
+            var compatiblePorts = new List<Port>();
+        
+            ports.ForEach(port =>
+            {
+                if (startPort != port && startPort.node != port.node && startPort.direction != port.direction)
+                {
+                    compatiblePorts.Add(port);
+                }
+            });
+        
+            return compatiblePorts;
+        }
 
 
         public Constants.ComponentGraphDrawType GraphDrawType { get; set; }
