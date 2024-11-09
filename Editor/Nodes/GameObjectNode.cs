@@ -2,16 +2,13 @@ using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace SceneConnections.Editor
+namespace SceneConnections.Editor.Nodes
 {
     public sealed class GameObjectNode : Node
     {
-        public bool HasSize;
-        public Label ContentLabel;
 
-        private GameObjectNode(bool hasSize)
+        private GameObjectNode()
         {
-            HasSize = hasSize;
             title = "Game Object Node";
 
             // Create input and output ports

@@ -33,12 +33,18 @@ namespace SceneConnections.Editor
                 })
                 { text = "Refresh Graph" };
             rootVisualElement.Add(refreshButton);
+            _graphView.AddManipulator(new ContextualMenuManipulator(BuildContextMenu));
         }
 
 
         private void OnDisable()
         {
             rootVisualElement.Remove(_graphView);
+        }
+        
+        private void BuildContextMenu(ContextualMenuPopulateEvent evt)
+        {
+            evt.menu.AppendAction("Center on connected nodes", _ => GraphViewUtilities.CenterCameraOnSelectedNodes(_graphView));
         }
 
         [MenuItem("Window/Connections v2 #&2")]

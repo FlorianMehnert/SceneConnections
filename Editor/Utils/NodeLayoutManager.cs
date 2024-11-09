@@ -42,6 +42,12 @@ namespace SceneConnections.Editor.Utils
             }
         }
 
+        /// <summary>
+        /// Nodes will execute this method once they receive the <see cref="GeometryChangedEvent"/> in <see cref="LayoutNodes"/>, unregister the Event for all known nodes and update the layout with now known node sizes.
+        /// </summary>
+        /// <param name="node">Node receiving the geometry changed event</param>
+        /// <param name="nodes">All known nodes</param>
+        /// <param name="silent">Whether to not log</param>
         private static void OnNodeGeometryChanged(Node node, List<Node> nodes, bool silent)
         {
             var rect = node.GetPosition();
@@ -65,6 +71,11 @@ namespace SceneConnections.Editor.Utils
             PerformLayout(nodes, silent);
         }
 
+        /// <summary>
+        /// Gridlayout application, requiring avaialble node sizes which need to be waited for using the <see cref="GeometryChangedEvent"/>
+        /// </summary>
+        /// <param name="nodes">Nodes to perform the layout on</param>
+        /// <param name="silent">Whether to not log</param>
         private static void PerformLayout(List<Node> nodes, bool silent)
         {
             // Default grid layout
@@ -93,6 +104,11 @@ namespace SceneConnections.Editor.Utils
             }
         }
 
+        /// <summary>
+        /// Calculate Columns for grid based layout with evenly spaced items
+        /// </summary>
+        /// <param name="nodeCount">Amount of nodes to be played</param>
+        /// <returns></returns>
         private static int CalculateOptimalColumnCount(int nodeCount)
         {
             const float targetAspectRatio = 1.618f;
@@ -139,7 +155,12 @@ namespace SceneConnections.Editor.Utils
             return connectedNodes;
         }
 
-        // Method to disable nodes without connections and recalculate layout
+        /// <summary>
+        /// Method to disable nodes without connections and recalculate layout
+        /// </summary>
+        /// <param name="nodes"></param>
+        /// <param name="allEdges"></param>
+        /// <param name="silent"></param>
         public static void DisableDisconnectedNodes(List<Node> nodes, List<Edge> allEdges, bool silent = false)
         {
             var connectedNodes = nodes

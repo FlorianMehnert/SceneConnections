@@ -1,5 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
+using JetBrains.Annotations;
+using SceneConnections.Editor.Nodes;
+using UnityEditor;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
@@ -248,6 +251,73 @@ namespace SceneConnections.Editor.Utils
             }
 
             return positions;
+        }
+
+        public static void HighlightNode(GraphView graphView, Node node)
+        {
+            if (node == null) return;
+            graphView.AddToSelection(node);
+        }
+
+        [CanBeNull]
+        public static HashSet<Node> TraverseConnectedNodes(Node node, Color color, HashSet<Node> visitedNodes)
+        {
+            if (!visitedNodes.Add(node))
+                return visitedNodes;
+
+            // Apply color to the node
+            node.style.backgroundColor = color;
+
+
+            // Traverse output connected nodes
+            foreach (var port in node.outputContainer.Children().OfType<Port>())
+            {
+                foreach (var edge in port.connections)
+                {
+                    if (edge.input.node is { } connectedNode)
+                    {
+                        TraverseConnectedNodes(connectedNode, color, visitedNodes);
+                    }
+                }
+            }
+
+            // Traverse input connected nodes
+            foreach (var port in node.inputContainer.Children().OfType<Port>())
+            {
+                foreach (var edge in port.connections)
+                {
+                    if (edge.output.node is { } connectedNode)
+                    {
+                        TraverseConnectedNodes(connectedNode, color, visitedNodes);
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static List<Node> GetAllNodesInActiveGraphView()
+        {
+            // Get the currently focused editor window
+            var window = EditorWindow.focusedWindow;
+            if (window == null) return null;
+
+            // Look for a GraphView within the editor window's root visual element
+            var graphView = window.rootVisualElement.Children().OfType<GraphView>().FirstOrDefault();
+
+            // Return all nodes in the GraphView
+            return graphView?.nodes.ToList();
+        }
+
+        /// <summary>
+        /// Reset the color of all nodes
+        /// </summary>
+        public static void ResetNodeColors()
+        {
+            foreach (var node in GetAllNodesInActiveGraphView())
+            {
+                node.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f, .5f);
+            }
         }
     }
 }

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using SceneConnections.Editor.Nodes;
 using UnityEditor;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
@@ -30,6 +31,9 @@ namespace SceneConnections.Editor.Utils
             _gv = gv;
         }
 
+        /// <summary>
+        /// Create UI Element Progressbar for the <see cref="InitGraphAsync"/> updating when the current batch finishes
+        /// </summary>
         public void SetupProgressBar()
         {
             _progressBar = new IMGUIContainer(() =>
@@ -57,6 +61,9 @@ namespace SceneConnections.Editor.Utils
             _progressBar.style.right = 0;
         }
 
+        /// <summary>
+        /// Handler for <see cref="InitGraphAsync"/>
+        /// </summary>
         public void BuildGraph()
         {
             if (_gv.IsBusy) return;
@@ -64,6 +71,9 @@ namespace SceneConnections.Editor.Utils
             InitGraphAsync();
         }
 
+        /// <summary>
+        /// Starts Batched Creation and visualization of dummy nodes 
+        /// </summary>
         public async void InitGraphAsync()
         {
             if (_gv.IsBusy) return;
@@ -80,7 +90,7 @@ namespace SceneConnections.Editor.Utils
             var nodesToAdd = new List<Node>(AmountOfNodes);
             for (var i = 0; i < AmountOfNodes; i++)
             {
-                var node = new Node { title = $"Node {i}" };
+                var node = new AdvancedNode { };
                 nodesToAdd.Add(node);
                 _gv.Nodes.Add(node);
             }
@@ -134,6 +144,9 @@ namespace SceneConnections.Editor.Utils
             Debug.Log($"Total processing time: {_totalStopwatch.Elapsed.TotalSeconds:F2} seconds");
         }
 
+        /// <summary>
+        /// Export all data collected during <see cref="InitGraphAsync"/> as <b>csv</b>: Total nodes, total time, average time per node, average creation time per batch, average layout time per batch
+        /// </summary>
         public void ExportPerformanceData()
         {
             var path = EditorUtility.SaveFilePanel(

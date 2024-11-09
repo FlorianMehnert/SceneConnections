@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using SceneConnections.Editor.Nodes;
 using SceneConnections.Editor.Utils;
 using SceneConnections.Editor.Utils.ScriptVisualization;
 using UnityEditor;
@@ -188,7 +189,7 @@ namespace SceneConnections.Editor
 
                     foreach (var (scriptName, _) in allReferences)
                     {
-                        var node = new Node { title = scriptName };
+                        var node = new AdvancedNode { title = scriptName };
                         _scripts[scriptName] = node;
                         Nodes.Add(node);
                         AddElement(node);
