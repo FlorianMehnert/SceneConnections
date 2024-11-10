@@ -108,6 +108,13 @@ namespace SceneConnections.Editor
                     evt.StopPropagation();
                     break;
                 }
+                case true when evt.keyCode == KeyCode.X:
+                {
+                    GraphViewUtilities.ExportGraphToGraphviz(this, "Assets/UnityGraph.dot");
+                    Debug.Log("Graph exported to Graphviz format at Assets/UnityGraph.dot");
+                    evt.StopPropagation();
+                    break;
+                }
             }
         }
 
@@ -191,7 +198,7 @@ namespace SceneConnections.Editor
                         var node = new AdvancedNode { title = scriptName };
                         _scripts[scriptName] = node;
                         Nodes.Add(node);
-                        AddElement(node);
+                        AddElement(node); // disable for faster export
                     }
 
                     Parallel.ForEach(allReferences, reference =>

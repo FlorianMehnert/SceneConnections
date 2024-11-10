@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
@@ -63,6 +65,37 @@ namespace SceneConnections.Editor.Utils
                     .ToList();
             Debug.LogWarning("GraphView is null, cannot get nodes.");
             return null;
+        }
+        
+        public static void ExportGraphToGraphviz(GraphView graphView, string filePath)
+        {
+            // Initialize a StringBuilder to create the .dot content
+            var dotContent = new StringBuilder();
+
+            // Start the Graphviz dot format with the "digraph" keyword if it's directed, or "graph" if undirected
+            dotContent.AppendLine("digraph UnityGraph {");
+
+            // Iterate over nodes in the GraphView
+            foreach (var nodeName in graphView.nodes.ToList().Select(node => node.title ?? node.GetType().Name))
+            {
+                dotContent.AppendLine($"    \"{nodeName}\";");  // Adding each node
+            }
+
+            // Iterate over edges in the GraphView
+            foreach (var edge in graphView.edges.ToList())
+            {
+                var outputNode = edge.output.node.title;
+                var inputNode = edge.input.node.title;
+
+                // Add each edge in the format "node1" -> "node2"
+                dotContent.AppendLine($"    \"{outputNode}\" -> \"{inputNode}\";");
+            }
+
+            // Close the graph
+            dotContent.AppendLine("}");
+
+            // Write the StringBuilder content to a .dot file
+            File.WriteAllText(filePath, dotContent.ToString());
         }
     }
 }
