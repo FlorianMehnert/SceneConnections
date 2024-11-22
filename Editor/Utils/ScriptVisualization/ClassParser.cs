@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace SceneConnections.Editor.Utils.ScriptVisualization
+namespace Editor.Utils.ScriptVisualization
 {
     public static class ClassParser
     {

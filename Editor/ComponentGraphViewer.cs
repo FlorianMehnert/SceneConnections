@@ -1,16 +1,16 @@
-using SceneConnections.Editor.Utils;
+using Editor.Utils;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace SceneConnections.Editor
+namespace Editor
 {
     public class ComponentGraphViewer : EditorWindow
     {
         private ComponentGraphView _graphView;
 
         private void OnEnable()
-        {
+        { 
             var highlightColor = new Color(1f, 0.8f, 0.2f, 1f);
             var defaultColor = new Color(0.2f, 0.2f, 0.2f, .5f);
             _graphView = new ComponentGraphView(defaultColor, highlightColor);

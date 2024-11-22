@@ -11,7 +11,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Debug = UnityEngine.Debug;
 
-namespace SceneConnections.Editor.Utils
+namespace Editor.Utils
 {
     public class NodeGraphBuilder
     {

@@ -1,6 +1,6 @@
 using System;
 
-namespace SceneConnections.Editor.Utils
+namespace Editor.Utils
 {
     public class PerformanceMetrics
     {

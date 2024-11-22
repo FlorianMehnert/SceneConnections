@@ -6,7 +6,7 @@ using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace SceneConnections.Editor.Utils
+namespace Editor.Utils
 {
     public abstract class NodeLayoutManager
     {

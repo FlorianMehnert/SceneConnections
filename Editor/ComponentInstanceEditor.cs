@@ -1,9 +1,9 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace SceneConnections.Editor
+namespace Editor
 {
-    public class ComponentInstanceEditor : UnityEditor.EditorWindow
+    public class ComponentInstanceEditor : EditorWindow
     {
         private System.Type _componentType;
         private Component _selectedComponent;

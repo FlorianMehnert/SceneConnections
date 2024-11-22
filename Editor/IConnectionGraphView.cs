@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
-using SceneConnections.Editor.Utils;
+using Editor.Utils;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine.UIElements;
 
-namespace SceneConnections.Editor
+namespace Editor
 {
     public interface IConnectionGraphView
     {

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 
-namespace SceneConnections.Editor.Utils.ScriptVisualization
+namespace Editor.Utils.ScriptVisualization
 {
     public static class ScriptFinder
     {

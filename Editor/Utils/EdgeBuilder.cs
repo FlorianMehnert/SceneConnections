@@ -13,7 +13,7 @@ using Random = UnityEngine.Random;
 using Debug = UnityEngine.Debug;
 using Edge = UnityEditor.Experimental.GraphView.Edge;
 
-namespace SceneConnections.Editor.Utils
+namespace Editor.Utils
 {
     public class EdgeBuilder
     {

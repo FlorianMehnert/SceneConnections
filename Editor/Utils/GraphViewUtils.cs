@@ -5,7 +5,7 @@ using System.Text;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
-namespace SceneConnections.Editor.Utils
+namespace Editor.Utils
 {
     public static class GraphViewUtilities
     {

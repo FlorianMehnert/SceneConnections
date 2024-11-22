@@ -7,7 +7,7 @@ using UnityEditor.ShortcutManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace SceneConnections.Editor
+namespace Editor
 {
     public class RectangleWindow : EditorWindow
     {

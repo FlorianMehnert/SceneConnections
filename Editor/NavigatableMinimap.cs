@@ -2,7 +2,7 @@ using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace SceneConnections.Editor
+namespace Editor
 {
     public class NavigableMinimap : MiniMap
     {

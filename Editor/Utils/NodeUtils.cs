@@ -6,7 +6,7 @@ using UnityEditor;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
-namespace SceneConnections.Editor.Utils
+namespace Editor.Utils
 {
     public class LayoutState
     {

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Editor.Utils;
+using Editor.Utils.ScriptVisualization;
 using SceneConnections.Editor.Nodes;
-using SceneConnections.Editor.Utils;
-using SceneConnections.Editor.Utils.ScriptVisualization;
 using UnityEditor;
 using UnityEditor.Experimental.GraphView;
 using UnityEditor.UIElements;
@@ -15,7 +15,7 @@ using Edge = UnityEditor.Experimental.GraphView.Edge;
 using Object = UnityEngine.Object;
 
 
-namespace SceneConnections.Editor
+namespace Editor
 {
     public class ComponentGraphView : GraphView, IConnectionGraphView
     {
