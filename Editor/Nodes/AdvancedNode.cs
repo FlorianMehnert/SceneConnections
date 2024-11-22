@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using Editor.Utils;
-using SceneConnections.Editor.Utils;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace SceneConnections.Editor.Nodes
+namespace Editor.Nodes
 {
     public sealed class AdvancedNode : Node
     {
