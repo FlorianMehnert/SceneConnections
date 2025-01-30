@@ -1,39 +1,42 @@
 using UnityEditor;
 using UnityEngine;
 
-public class ComponentInstanceEditor : UnityEditor.EditorWindow
+namespace SceneConnections.Editor.SceneConnections.Editor
 {
-    private System.Type _componentType;
-    private Component _selectedComponent;
-    private Vector2 _scrollPosition;
-
-    public static void OpenWindow(System.Type componentType)
+    public class ComponentInstanceEditor : UnityEditor.EditorWindow
     {
-        var window = GetWindow<ComponentInstanceEditor>();
-        window.titleContent = new GUIContent($"Edit {componentType.Name}");
-        window._componentType = componentType;
-        window.Show();
-    }
+        private System.Type _componentType;
+        private Component _selectedComponent;
+        private Vector2 _scrollPosition;
 
-    private void OnGUI()
-    {
-        if (_componentType == null)
+        public static void OpenWindow(System.Type componentType)
         {
-            EditorGUILayout.LabelField("No component type selected.");
-            return;
+            var window = GetWindow<ComponentInstanceEditor>();
+            window.titleContent = new GUIContent($"Edit {componentType.Name}");
+            window._componentType = componentType;
+            window.Show();
         }
 
-        EditorGUILayout.LabelField($"Editing {_componentType.Name}", EditorStyles.boldLabel);
-
-        _selectedComponent = EditorGUILayout.ObjectField("Select Instance", _selectedComponent, _componentType, true) as Component;
-
-        if (_selectedComponent)
+        private void OnGUI()
         {
-            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
-        }
-        else
-        {
-            EditorGUILayout.HelpBox("Select an instance of the component to edit.", MessageType.Info);
+            if (_componentType == null)
+            {
+                EditorGUILayout.LabelField("No component type selected.");
+                return;
+            }
+
+            EditorGUILayout.LabelField($"Editing {_componentType.Name}", EditorStyles.boldLabel);
+
+            _selectedComponent = EditorGUILayout.ObjectField("Select Instance", _selectedComponent, _componentType, true) as Component;
+
+            if (_selectedComponent)
+            {
+                _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
+            }
+            else
+            {
+                EditorGUILayout.HelpBox("Select an instance of the component to edit.", MessageType.Info);
+            }
         }
     }
 }

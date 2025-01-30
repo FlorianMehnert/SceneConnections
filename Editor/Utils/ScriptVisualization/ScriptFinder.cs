@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 
+namespace SceneConnections.Editor.Utils.ScriptVisualization
+{
     public static class ScriptFinder
     {
         public static List<string> GetAllScriptPaths()
@@ -12,3 +14,4 @@ using UnityEditor;
             return guids.Select(AssetDatabase.GUIDToAssetPath).ToList();
         }
     }
+}

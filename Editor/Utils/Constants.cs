@@ -1,22 +1,25 @@
 using System;
 
-public static class Constants
+namespace SceneConnections.Editor.Utils
 {
-    public enum ComponentGraphDrawType
+    public static class Constants
     {
-        NodesAreComponents = 1,
-        NodesAreGameObjects = 2,
-        NodesAreScripts = 3
-    }
-
-    public static ComponentGraphDrawType ToCgdt(string s)
-    {
-        return s switch
+        public enum ComponentGraphDrawType
         {
-            "nodes are components" => ComponentGraphDrawType.NodesAreComponents,
-            "nodes are game objects" => ComponentGraphDrawType.NodesAreGameObjects,
-            "nodes are scripts" => ComponentGraphDrawType.NodesAreScripts,
-            _ => throw new ArgumentOutOfRangeException(nameof(s), s, null)
-        };
+            NodesAreComponents = 1,
+            NodesAreGameObjects = 2,
+            NodesAreScripts = 3
+        }
+
+        public static ComponentGraphDrawType ToCgdt(string s)
+        {
+            return s switch
+            {
+                "nodes are components" => ComponentGraphDrawType.NodesAreComponents,
+                "nodes are game objects" => ComponentGraphDrawType.NodesAreGameObjects,
+                "nodes are scripts" => ComponentGraphDrawType.NodesAreScripts,
+                _ => throw new ArgumentOutOfRangeException(nameof(s), s, null)
+            };
+        }
     }
 }

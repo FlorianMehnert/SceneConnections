@@ -1,7 +1,6 @@
 {
     "name": "SceneConnections.Editor",
     "rootNamespace": "SceneConnections.Editor",
-    "references": [],
     "includePlatforms": [
         "Editor"
     ],
