@@ -1,9 +1,9 @@
 {
   "name": "com.florian-mehnert.scene-connections",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "displayName": "Scene Connections",
   "description": "This package provides an overview over all instances of classes and their connections as new graph",
-  "unity": "2022.3",
+  "unity": "6000.25",
   "documentationUrl": "https://github.com/FlorianMehnert/SceneConnections/blob/master/README.md",
   "changelogUrl": "https://github.com/FlorianMehnert/SceneConnections/blob/master/README.md",
   "licensesUrl": "https://github.com/FlorianMehnert/SceneConnections/blob/master/LICENSE",
